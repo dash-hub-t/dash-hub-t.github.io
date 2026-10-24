@@ -1,13 +1,15 @@
 {
-  "name": "Work Hub",
+  "name": "Work Hub — Md. Ashraful Islam",
   "short_name": "Work Hub",
   "description": "সব অ্যাপের আজকের হিসাব এক পাতায়",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#14122b",
-  "theme_color": "#1e1b4b",
+  "theme_color": "#312e81",
   "icons": [
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
