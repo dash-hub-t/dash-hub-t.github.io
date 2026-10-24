@@ -116,9 +116,10 @@ button,input{font-family:inherit}
 button{cursor:pointer}
 .num{font-family:'Inter',sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 [hidden]{display:none!important}
-/* শুভেচ্ছার হাসিখুশি মেয়ের ছবি — একটু মাথা দোলায় */
-.girl{width:44px;height:44px;vertical-align:-11px;margin-left:6px;transform-origin:50% 90%;animation:nod 2.6s ease-in-out infinite}
-@keyframes nod{0%,100%{transform:rotate(0)}25%{transform:rotate(-7deg)}60%{transform:rotate(5deg)}}
+/* শুভেচ্ছার হাসিখুশি মেয়ের ছবি — হাত নেড়ে স্বাগত জানায় (কনুই থেকে হাত দোলে) */
+.girl{width:58px;height:46px;vertical-align:-12px;margin-left:6px;overflow:visible}
+.girl .hand{transform-box:view-box;transform-origin:55px 47px;animation:wave 1.6s ease-in-out infinite}
+@keyframes wave{0%,100%{transform:rotate(0)}15%{transform:rotate(20deg)}30%{transform:rotate(-8deg)}45%{transform:rotate(18deg)}60%{transform:rotate(-4deg)}75%{transform:rotate(0)}}
 
 /* ---------- লগইন ---------- */
 #login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;
@@ -695,7 +696,7 @@ function header() {
 }
 
 // হাসিখুশি মেয়ের ছোট ছবি (নিজস্ব SVG — সব ফোনে একই রকম দেখায়, emoji-র মতো বদলায় না)
-var GIRL = '<svg class="girl" viewBox="0 0 64 64" aria-hidden="true">' +
+var GIRL = '<svg class="girl" viewBox="0 0 80 64" aria-hidden="true">' +
   '<defs><linearGradient id="gbg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fde2f3"/><stop offset="1" stop-color="#e4d4ff"/></linearGradient></defs>' +
   '<circle cx="32" cy="32" r="31" fill="url(#gbg)"/>' +
   '<path d="M14 40C12 22 20 10 32 10s20 12 18 30c-1 6-4 10-6 12H20c-2-2-5-6-6-12z" fill="#2a1a17"/>' +           // পেছনের চুল
@@ -708,7 +709,13 @@ var GIRL = '<svg class="girl" viewBox="0 0 64 64" aria-hidden="true">' +
   '<path d="M23.5 31.5q3-3.2 6 0M34.5 31.5q3-3.2 6 0" fill="none" stroke="#3b2a25" stroke-width="1.8" stroke-linecap="round"/>' + // হাসি-চোখ
   '<circle cx="23.5" cy="36.5" r="2.6" fill="#ff9fb4" opacity=".7"/><circle cx="40.5" cy="36.5" r="2.6" fill="#ff9fb4" opacity=".7"/>' +
   '<path d="M27.5 37.5q4.5 5.5 9 0z" fill="#c2185b"/><path d="M28.6 38.1h6.8q-.6 1.3-3.4 1.3t-3.4-1.3z" fill="#fff"/>' + // হাসি
-  '</svg>';
+  '<path d="M43 57q8-3 12-10" fill="none" stroke="#8b3fd9" stroke-width="8" stroke-linecap="round"/>' +              // জামার হাতা
+  '<g class="hand">' +                                                                                              // নড়তে থাকা হাত
+    '<path d="M55 47l4.5-15" stroke="#f6c9a8" stroke-width="6" stroke-linecap="round"/>' +
+    '<ellipse cx="60.5" cy="27" rx="5.6" ry="6.2" fill="#f6c9a8"/>' +
+    '<path d="M57 23.5v-6M59.5 22.5v-7.5M62 22.5v-7M64.5 24v-5.5M55.6 27.5l-3.4-3.6" stroke="#f6c9a8" stroke-width="2.9" stroke-linecap="round"/>' +
+    '<path d="M68 18q3 4 0 8M71 15.5q4.5 6.5 0 13" fill="none" stroke="#b794f6" stroke-width="1.6" stroke-linecap="round"/>' + // নাড়ার দাগ
+  '</g></svg>';
 
 /* প্রতিটা অ্যাপের জন্য আলাদা কল, একসাথে — যেটা আগে আসে তার কার্ড আগে ভরে
  * (CBT-র হিসাব বেশি সময় নেয়, বাকিরা তার জন্য অপেক্ষা করে না) */
