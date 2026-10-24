@@ -185,6 +185,8 @@ main{max-width:1200px;margin:0 auto;padding:18px 16px 30px}
 .hello h2{font-size:23px;font-weight:700;line-height:1.25}
 .hello h2 span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .hello p{font-size:13.5px;color:var(--ink3);margin-top:2px}
+.hello .motto{font-size:14.5px;font-weight:500;color:var(--ink2);margin-top:4px}
+.hello .motto::before{content:"✦ ";background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .sync{font-size:12.5px;color:var(--ink3);display:flex;align-items:center;gap:6px}
 .sync i{width:8px;height:8px;border-radius:50%;background:var(--pos);display:inline-block}
 .sync.busy i{background:var(--acc);animation:pl 1s infinite}
@@ -355,7 +357,7 @@ main{max-width:1200px;margin:0 auto;padding:18px 16px 30px}
   <main>
     <div class="hello">
       <div class="hi"><span class="girl" aria-hidden="true"><img src="girl.webp" alt="" width="85" height="110" decoding="async"></span>
-        <div><h2 id="hello"></h2><p>কার্ডের মাথায় চাপলে ছোট/বড় হয় · "খুলুন" চাপলে সেই অ্যাপ</p></div></div>
+        <div><h2 id="hello"></h2><p class="motto" id="motto"></p></div></div>
       <div class="sync" id="syncTxt"></div>
     </div>
     <div class="chips" id="chips"></div>
@@ -716,7 +718,43 @@ function header() {
   $('todayTxt').textContent = d.toLocaleDateString('bn-BD', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   var g = h < 5 ? 'শুভ রাত্রি' : h < 12 ? 'শুভ সকাল' : h < 17 ? 'শুভ দুপুর' : h < 20 ? 'শুভ সন্ধ্যা' : 'শুভ রাত্রি';
   $('hello').innerHTML = g + (P.name ? ', <span>' + esc(P.name) + '</span>' : '');
+  // প্রতিদিন একটা নতুন অনুপ্রেরণার কথা (সারাদিন একই থাকে)
+  var day = Math.floor((d - new Date(d.getFullYear(), 0, 1)) / 864e5);
+  $('motto').textContent = MOTTOS[day % MOTTOS.length];
 }
+
+var MOTTOS = [
+  'আজকের ছোট ছোট কাজই কালকের বড় সাফল্য।',
+  'শুরু করাটাই অর্ধেক কাজ — বাকিটা আজই হয়ে যাবে।',
+  'নিয়মিত চেষ্টাই প্রতিভাকে হার মানায়।',
+  'যে কাজ আজ শেষ, কাল তা নিয়ে আর ভাবতে হয় না।',
+  'ধৈর্য আর পরিশ্রম — এই দুটোই সবচেয়ে বড় পুঁজি।',
+  'একটা একটা করে এগোন, পাহাড়ও একদিন পায়ের নিচে আসে।',
+  'ভালো হিসাব মানেই নিশ্চিন্ত মন।',
+  'আজকের দিনটা আপনার — কাজে লাগান।',
+  'সফলতা হঠাৎ আসে না, প্রতিদিন একটু একটু করে গড়ে ওঠে।',
+  'যেখানে মনোযোগ, সেখানেই উন্নতি।',
+  'কঠিন কাজটা আগে সেরে ফেলুন, দিনটা হালকা হয়ে যাবে।',
+  'ভুল থেকে শেখা মানেই এক ধাপ এগিয়ে যাওয়া।',
+  'স্বপ্ন বড় রাখুন, কাজ শুরু করুন ছোট থেকে।',
+  'সময়ের কাজ সময়ে — এটাই সবচেয়ে বড় স্মার্টনেস।',
+  'আপনার পরিশ্রমই আপনার পরিচয়।',
+  'প্রতিটা সংখ্যার পেছনে আছে আপনার মেহনত।',
+  'থেমে না থাকাটাই আসল জয়।',
+  'আজ যা কঠিন মনে হচ্ছে, কাল সেটাই অভ্যাস হবে।',
+  'পরিকল্পনা ছাড়া লক্ষ্য শুধুই ইচ্ছা।',
+  'নিজের সাথে প্রতিযোগিতা করুন — গতকালের চেয়ে আজ একটু ভালো।',
+  'শান্ত মাথা, পরিষ্কার হিসাব, এগিয়ে চলা।',
+  'বিশ্বাস রাখুন — আপনি যতটা ভাবেন, তার চেয়েও বেশি পারেন।',
+  'ছোট জয়গুলোও উদযাপন করুন।',
+  'কাজকে ভালোবাসলে কাজও আপনাকে ফিরিয়ে দেয়।',
+  'অজুহাত নয়, ফলাফল খুঁজুন।',
+  'সঠিক পথে ধীরে চলাও এগিয়ে যাওয়া।',
+  'আজকের পরিশ্রম, আগামীর আরাম।',
+  'সুযোগ আসে প্রস্তুত মানুষের কাছেই।',
+  'মনোযোগ দিন এখনকার কাজে — বাকিটা পথ দেখাবে।',
+  'নতুন দিন, নতুন সম্ভাবনা।'
+];
 
 /* PIN দিয়ে খোলার পর স্বাগতম (~২ সেকেন্ড): মেয়েটা বড় হয়ে মাঝে এসে হাত নাড়ে,
  * তারপর উড়ে গিয়ে শুভেচ্ছার পাশে নিজের জায়গায় বসে। চাপ দিলে সাথে সাথে বসে যায়। */
