@@ -116,12 +116,14 @@ button,input{font-family:inherit}
 button{cursor:pointer}
 .num{font-family:'Inter',sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 [hidden]{display:none!important}
-/* শুভেচ্ছার হাসিখুশি মেয়ের ছবি (AI-তে বানানো, girl.webp) — গোল ফ্রেমে হালকা দুলে "হাই" বলে */
-.girl{display:inline-block;width:52px;height:52px;border-radius:50%;vertical-align:-15px;margin-left:8px;padding:2.5px;
-  background:linear-gradient(135deg,#f472b6,#a855f7,#6366f1);box-shadow:0 4px 14px rgba(168,85,247,.45);
-  transform-origin:50% 100%;animation:wave 2.4s ease-in-out infinite}
-.girl img{display:block;width:100%;height:100%;border-radius:50%;border:2px solid #fff;object-fit:cover}
-@keyframes wave{0%,60%,100%{transform:rotate(0)}10%{transform:rotate(-7deg)}22%{transform:rotate(6deg)}34%{transform:rotate(-4deg)}46%{transform:rotate(2deg)}}
+/* শুভেচ্ছার পাশে হাসিখুশি মেয়ে (AI-তে বানানো, পটভূমি ছাড়া girl.webp) — দাঁড়িয়ে হাত নেড়ে "হাই" বলে */
+.hi{display:flex;align-items:flex-end;gap:6px;min-width:0}
+.hi>div{min-width:0;padding-bottom:4px}
+.girl{position:relative;flex:none;height:112px;margin:-6px 0 -6px -4px;transform-origin:50% 100%;animation:wave 3s ease-in-out infinite}
+.girl::before{content:"";position:absolute;inset:14% -8% 0;border-radius:50%;z-index:-1;filter:blur(14px);
+  background:radial-gradient(closest-side,rgba(192,132,252,.55),rgba(244,114,182,.25) 60%,transparent)}
+.girl img{display:block;height:100%;width:auto;transform:scaleX(-1);filter:drop-shadow(0 6px 10px rgba(76,29,149,.25))} /* উল্টানো — হাতটা লেখার দিকে */
+@keyframes wave{0%,55%,100%{transform:rotate(0)}10%{transform:rotate(-3deg)}22%{transform:rotate(2.5deg)}34%{transform:rotate(-1.5deg)}45%{transform:rotate(1deg)}}
 
 /* ---------- লগইন ---------- */
 #login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;
@@ -279,6 +281,7 @@ main{max-width:1200px;margin:0 auto;padding:18px 16px 30px}
   .grid,[data-cols="2"] .grid,[data-cols="3"] .grid{grid-template-columns:1fr}
   .chips{grid-template-columns:repeat(2,1fr)}
   .hello h2{font-size:20px}
+  .girl{height:96px;margin-top:-4px}
   .stat b{font-size:17px}
   .ib .lbl{display:none}
 }
@@ -334,7 +337,8 @@ main{max-width:1200px;margin:0 auto;padding:18px 16px 30px}
 
   <main>
     <div class="hello">
-      <div><h2 id="hello"></h2><p>কার্ডের মাথায় চাপলে ছোট/বড় হয় · "খুলুন" চাপলে সেই অ্যাপ</p></div>
+      <div class="hi"><span class="girl" aria-hidden="true"><img src="girl.webp" alt="" width="83" height="110" decoding="async"></span>
+        <div><h2 id="hello"></h2><p>কার্ডের মাথায় চাপলে ছোট/বড় হয় · "খুলুন" চাপলে সেই অ্যাপ</p></div></div>
       <div class="sync" id="syncTxt"></div>
     </div>
     <div class="chips" id="chips"></div>
@@ -694,11 +698,8 @@ function header() {
   var d = new Date(), h = d.getHours();
   $('todayTxt').textContent = d.toLocaleDateString('bn-BD', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   var g = h < 5 ? 'শুভ রাত্রি' : h < 12 ? 'শুভ সকাল' : h < 17 ? 'শুভ দুপুর' : h < 20 ? 'শুভ সন্ধ্যা' : 'শুভ রাত্রি';
-  $('hello').innerHTML = g + (P.name ? ', <span>' + esc(P.name) + '</span>' : '') + GIRL;
+  $('hello').innerHTML = g + (P.name ? ', <span>' + esc(P.name) + '</span>' : '');
 }
-
-// হাসিখুশি মেয়ের ছোট ছবি (AI-তে বানানো আসল ছবি, হাত তুলে "হাই" বলছে)
-var GIRL = '<span class="girl" aria-hidden="true"><img src="girl.webp" alt="" width="44" height="44" decoding="async"></span>';
 
 /* প্রতিটা অ্যাপের জন্য আলাদা কল, একসাথে — যেটা আগে আসে তার কার্ড আগে ভরে
  * (CBT-র হিসাব বেশি সময় নেয়, বাকিরা তার জন্য অপেক্ষা করে না) */
