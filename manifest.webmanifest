@@ -1,0 +1,13 @@
+{
+  "name": "Work Hub",
+  "short_name": "Work Hub",
+  "description": "সব অ্যাপের আজকের হিসাব এক পাতায়",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#14122b",
+  "theme_color": "#1e1b4b",
+  "icons": [
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

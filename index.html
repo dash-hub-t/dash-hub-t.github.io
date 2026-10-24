@@ -1,0 +1,745 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Work Hub</title>
+<meta name="theme-color" content="#1e1b4b">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-512.png">
+<link rel="apple-touch-icon" href="icon-512.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Work Hub">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@500;600;700;800&display=swap" rel="stylesheet">
+<script>
+/* =========================================================
+ *  Work Hub — সব অ্যাপের আজকের হিসাব এক পাতায়
+ *  API_URL = Hub-এর Apps Script ("Anyone" deployment) /exec লিংক।
+ *  পেজ public — কোনো গোপন তথ্য নেই; নিরাপত্তা লগইন টোকেন + PIN থেকে।
+ *  ?demo দিয়ে খুললে নমুনা ডেটা (সার্ভার ছাড়া ডিজাইন দেখার জন্য)।
+ * ========================================================= */
+var API_URL = 'https://script.google.com/macros/s/AKfycbzuidqRjNhhaPSwKSrG-PJBm0KxQIGazAoC3IBBBkgIRPzxjZmZKqClWnf-Pm6yC5Ei/exec';
+var DEMO = /[?&]demo\b/.test(location.search);
+
+// github.io-র সব রিপোজিটরি একই storage ভাগ করে — তাই সব key-তে "hub_"
+var AUTH_KEY = 'hub_auth';
+var AUTH = '';
+try { AUTH = localStorage.getItem(AUTH_KEY) || ''; } catch (e) {}
+if (DEMO) AUTH = 'demo';
+function setAuth(t) {
+  AUTH = t || '';
+  try { if (AUTH) localStorage.setItem(AUTH_KEY, AUTH); else localStorage.removeItem(AUTH_KEY); } catch (e) {}
+}
+
+// থিম — রেন্ডারের আগেই বসাই, যাতে ঝলক না দেখায়
+(function () {
+  var t = '';
+  try { t = localStorage.getItem('hub_theme') || ''; } catch (e) {}
+  if (!t) t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', t);
+})();
+
+/* text/plain POST — preflight ছাড়াই সরাসরি Apps Script-এ */
+function callServer(fn, args) {
+  if (DEMO) return demoCall(fn, args || []);
+  return fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ fn: fn, args: args || [], auth: AUTH })
+  }).then(function (r) {
+    if (!r.ok) throw new Error('সার্ভার সাড়া দিচ্ছে না (' + r.status + ') — একটু পরে আবার চেষ্টা করুন।');
+    return r.json().catch(function () { throw new Error('সার্ভারের উত্তর বোঝা যায়নি।'); });
+  }, function () {
+    throw new Error('সার্ভারে পৌঁছানো যায়নি — ইন্টারনেট সংযোগ দেখুন।');
+  }).then(function (j) {
+    if (!j || !j.ok) throw new Error((j && j.error) || 'অজানা সমস্যা।');
+    return j.data;
+  });
+}
+</script>
+<style>
+:root{
+  --bg:#f3f4fb; --bg2:#e9ebf8; --card:#ffffff; --ink:#151935; --ink2:#4a5072; --ink3:#8a8fae;
+  --line:#e6e8f3; --soft:#f5f6fc; --shadow:0 1px 2px rgba(20,24,60,.05),0 8px 24px rgba(20,24,60,.06);
+  --pos:#14915a; --neg:#d6334a; --warn:#c77700;
+  --top:rgba(255,255,255,.78);
+}
+[data-theme=dark]{
+  --bg:#0e1022; --bg2:#151834; --card:#181b36; --ink:#eef0ff; --ink2:#b5b9dc; --ink3:#7d82a8;
+  --line:#272b4d; --soft:#1f2342; --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.25);
+  --pos:#3ccf8e; --neg:#ff6b81; --warn:#ffb347;
+  --top:rgba(17,19,40,.8);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--ink)}
+body{font-family:'Hind Siliguri','Inter','Nirmala UI',system-ui,sans-serif;min-height:100vh;
+  background:radial-gradient(1200px 500px at 10% -10%,rgba(99,102,241,.16),transparent 60%),
+             radial-gradient(900px 400px at 100% 0,rgba(14,165,233,.12),transparent 60%),var(--bg);
+  background-attachment:fixed;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer}
+.num{font-family:'Inter',sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+[hidden]{display:none!important}
+
+/* ---------- লগইন ---------- */
+#login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;
+  background:radial-gradient(circle at 20% 15%,#4b3fd6 0,transparent 45%),radial-gradient(circle at 85% 90%,#0e7fb8 0,transparent 40%),#14122b}
+.lg-card{width:100%;max-width:370px;background:#fff;color:#1a1a2e;border-radius:22px;padding:28px 22px 20px;
+  box-shadow:0 24px 60px rgba(0,0,0,.45);text-align:center}
+.lg-card img{max-width:96px;max-height:96px;margin:0 auto 10px;display:block}
+.lg-card h1{font-size:22px;font-weight:700;margin-bottom:2px}
+.lg-card .sub{font-size:13px;color:#77779a;margin-bottom:18px}
+.lg-card label{display:block;text-align:left;font-size:13px;font-weight:700;color:#444;margin:0 0 5px}
+.lg-card input{width:100%;padding:12px 14px;border:2px solid #e1e5f0;border-radius:12px;font:600 16px 'Inter',sans-serif;outline:none;color:#1a1a2e;background:#fff}
+.lg-card input:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+.lg-card input.code{letter-spacing:8px;text-align:center;font-size:22px}
+.lg-btn{width:100%;margin-top:12px;padding:13px;border:0;border-radius:12px;color:#fff;font-size:15px;font-weight:700;
+  background:linear-gradient(135deg,#6366f1,#4338ca);box-shadow:0 6px 18px rgba(99,102,241,.35)}
+.lg-btn:disabled{opacity:.6;cursor:wait}
+.lg-msg{min-height:20px;margin-top:10px;font-size:13px;font-weight:600;color:#c0392b;line-height:1.5}
+.lg-msg.ok{color:#2d6a4f}
+.lg-link{background:none;border:0;color:#4338ca;font-size:13px;font-weight:700;margin-top:8px}
+.lg-foot{margin-top:14px;font-size:11.5px;color:#9a97b5}
+
+/* ---------- উপরের বার ---------- */
+.top{position:sticky;top:0;z-index:20;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  background:var(--top);border-bottom:1px solid var(--line)}
+.top-in{max-width:1180px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.brand img{width:38px;height:38px;border-radius:11px;flex:none}
+.brand b{display:block;font:800 17px 'Inter',sans-serif;letter-spacing:-.02em}
+.brand small{display:block;font-size:12.5px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ib{width:38px;height:38px;border-radius:11px;border:1px solid var(--line);background:var(--card);color:var(--ink);
+  display:inline-flex;align-items:center;justify-content:center;font-size:17px;flex:none}
+.ib:hover{border-color:#6366f1}
+.ib.spin span{display:inline-block;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.menu{position:absolute;right:16px;top:56px;background:var(--card);border:1px solid var(--line);border-radius:14px;
+  box-shadow:var(--shadow);padding:6px;min-width:210px;z-index:30}
+.menu button{display:flex;gap:10px;align-items:center;width:100%;border:0;background:none;color:var(--ink);
+  padding:10px 12px;border-radius:9px;font-size:14.5px;text-align:left}
+.menu button:hover{background:var(--soft)}
+
+/* ---------- মূল অংশ ---------- */
+main{max-width:1180px;margin:0 auto;padding:18px 16px 30px}
+.hello{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.hello h2{font-size:22px;font-weight:700;line-height:1.25}
+.hello p{font-size:13.5px;color:var(--ink3);margin-top:2px}
+.sync{font-size:12.5px;color:var(--ink3)}
+.chips{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px}
+.chip{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:11px 12px;box-shadow:var(--shadow);
+  display:flex;gap:10px;align-items:center;text-decoration:none;color:inherit;min-width:0}
+.chip i{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:17px;flex:none}
+.chip div{min-width:0}
+.chip small{display:block;font-size:12px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip b{display:block;font:700 16px 'Inter',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;align-items:start}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden;position:relative}
+.card::before{content:"";position:absolute;left:0;top:0;right:0;height:4px;background:var(--c)}
+.ch{display:flex;align-items:center;gap:11px;padding:16px 16px 10px}
+.ch i{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:19px;
+  background:color-mix(in srgb,var(--c) 14%,transparent);flex:none}
+.ch div{flex:1;min-width:0}
+.ch b{display:block;font-size:16.5px;font-weight:700;line-height:1.2}
+.ch small{display:block;font-size:12.5px;color:var(--ink3)}
+.ch a{font-size:13px;font-weight:700;color:var(--c);text-decoration:none;white-space:nowrap;padding:6px 10px;border-radius:9px;
+  background:color-mix(in srgb,var(--c) 10%,transparent)}
+.cb{padding:4px 16px 16px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--soft);border-radius:12px;padding:10px 11px;min-width:0}
+.stat small{display:block;font-size:12px;color:var(--ink3);line-height:1.3}
+.stat b{display:block;font:700 19px 'Inter',sans-serif;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat b em{font-style:normal;font-size:12px;color:var(--ink3);font-weight:600;margin-left:3px}
+.stat.hl{background:color-mix(in srgb,var(--c) 12%,transparent)}
+.stat.hl b{color:var(--c)}
+.stat.bad b{color:var(--neg)} .stat.good b{color:var(--pos)}
+.sec{font-size:12.5px;font-weight:700;color:var(--ink3);margin:14px 0 7px;display:flex;justify-content:space-between;gap:8px}
+.sec span{font-weight:600}
+.bar{height:8px;border-radius:99px;background:var(--soft);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:99px;background:var(--c)}
+.barline{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink2);margin-top:6px;gap:8px}
+.list{display:flex;flex-direction:column;gap:6px}
+.li{display:flex;align-items:center;gap:9px;font-size:14px;padding:7px 10px;border-radius:10px;background:var(--soft);min-width:0}
+.li span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li em{font-style:normal;font-size:12px;color:var(--ink3);white-space:nowrap}
+.pr{font:700 10.5px 'Inter',sans-serif;padding:2px 7px;border-radius:99px;flex:none}
+.pr.Must{background:#fde2e6;color:#b4233a} .pr.Should{background:#fff1d6;color:#9a5b00} .pr.Could{background:#e3f1ff;color:#1d5fa8}
+[data-theme=dark] .pr.Must{background:#4a1a26;color:#ff9aac} [data-theme=dark] .pr.Should{background:#45330f;color:#ffcf7a} [data-theme=dark] .pr.Could{background:#173150;color:#9cc9ff}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{font-size:12.5px;padding:4px 9px;border-radius:99px;background:var(--soft);color:var(--ink2)}
+.tag b{font-family:'Inter',sans-serif;color:var(--ink)}
+.tag.bad{background:color-mix(in srgb,var(--neg) 12%,transparent);color:var(--neg)}
+.big{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;padding:12px 14px;border-radius:12px;
+  border:1px dashed color-mix(in srgb,var(--c) 45%,transparent)}
+.big small{font-size:13px;color:var(--ink2);font-weight:600}
+.big b{font:800 21px 'Inter',sans-serif;color:var(--c)}
+.ring{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+.ring svg{flex:none}
+.ring p{font-size:14px;color:var(--ink2);line-height:1.5}
+.ring p b{font-family:'Inter',sans-serif;color:var(--ink)}
+.err{padding:14px;border-radius:12px;background:color-mix(in srgb,var(--neg) 9%,transparent);color:var(--neg);font-size:13.5px;line-height:1.5}
+.err button{margin-top:8px;border:0;background:var(--neg);color:#fff;font-weight:700;font-size:13px;padding:7px 12px;border-radius:9px}
+.sk{height:14px;border-radius:7px;background:linear-gradient(90deg,var(--soft),var(--line),var(--soft));background-size:200% 100%;animation:sh 1.3s infinite;margin:8px 0}
+@keyframes sh{to{background-position:-200% 0}}
+.foot{text-align:center;font-size:12.5px;color:var(--ink3);margin-top:22px}
+.foot b{color:var(--ink2)}
+
+/* ---------- নিরাপত্তা শিট ---------- */
+.ov{position:fixed;inset:0;background:rgba(10,12,30,.55);z-index:40;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--card);width:100%;max-width:560px;max-height:88vh;overflow:auto;border-radius:20px 20px 0 0;padding:18px 18px 24px}
+@media(min-width:720px){.ov{align-items:center}.sheet{border-radius:20px}}
+.sheet h3{font-size:18px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center}
+.sheet h4{font-size:14px;margin:16px 0 8px;color:var(--ink2)}
+.sheet p{font-size:13px;color:var(--ink3);line-height:1.5}
+.row{display:flex;gap:8px;align-items:center;padding:9px 11px;border-radius:11px;background:var(--soft);margin-bottom:6px;font-size:14px}
+.row span{flex:1;min-width:0;overflow-wrap:anywhere}
+.row small{display:block;font-size:12px;color:var(--ink3)}
+.sbtn{border:0;border-radius:9px;padding:7px 11px;font-size:13px;font-weight:700;background:var(--line);color:var(--ink)}
+.sbtn.red{background:color-mix(in srgb,var(--neg) 14%,transparent);color:var(--neg)}
+.sbtn.pri{background:#4f46e5;color:#fff}
+.add{display:flex;gap:8px;margin-top:8px}
+.add input{flex:1;min-width:0;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:500 14px 'Inter',sans-serif}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1e1b4b;color:#fff;padding:10px 16px;border-radius:12px;
+  font-size:14px;z-index:60;box-shadow:0 10px 30px rgba(0,0,0,.3);max-width:90vw}
+
+@media(max-width:1000px){.chips{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:620px){
+  .chips{grid-template-columns:repeat(2,1fr)} .chip:last-child{grid-column:1/-1}
+  .grid{grid-template-columns:1fr}
+  .hello h2{font-size:19px}
+  .stat b{font-size:17px}
+}
+</style>
+</head>
+<body>
+
+<!-- ================= লগইন ================= -->
+<div id="login" hidden>
+  <form class="lg-card" id="lgForm" autocomplete="off" novalidate>
+    <img src="logo.png" alt="logo">
+    <h1>Work Hub</h1>
+    <div class="sub">সব অ্যাপের আজকের হিসাব — এক পাতায়</div>
+    <div id="lgStep1">
+      <label for="lgEmail">ইমেইল</label>
+      <input id="lgEmail" type="email" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="you@gmail.com">
+    </div>
+    <div id="lgStep2" hidden>
+      <label for="lgCode">ইমেইলে আসা ৬ সংখ্যার কোড</label>
+      <input id="lgCode" class="code" inputmode="numeric" maxlength="6" placeholder="••••••">
+    </div>
+    <button class="lg-btn" id="lgBtn" type="submit">কোড পাঠান</button>
+    <div class="lg-msg" id="lgMsg"></div>
+    <button class="lg-link" id="lgBack" type="button" hidden>← অন্য ইমেইল</button>
+    <div class="lg-foot">Developed By: Md. Ashraful Islam</div>
+  </form>
+</div>
+
+<!-- ================= অ্যাপ ================= -->
+<div id="app" hidden>
+  <header class="top">
+    <div class="top-in">
+      <div class="brand">
+        <img src="icon-512.png" alt="">
+        <div><b>Work Hub</b><small id="todayTxt"></small></div>
+      </div>
+      <button class="ib" id="refBtn" title="রিফ্রেশ"><span>↻</span></button>
+      <button class="ib" id="themeBtn" title="থিম">🌙</button>
+      <button class="ib" id="menuBtn" title="মেনু">☰</button>
+    </div>
+    <div class="menu" id="menu" hidden>
+      <button data-act="security">🛡️ নিরাপত্তা</button>
+      <button data-act="lock">🔒 লক করুন</button>
+      <button data-act="logout">🚪 লগআউট</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="hello">
+      <div><h2 id="hello">আজকের হিসাব</h2><p>পাঁচটা অ্যাপ থেকে সরাসরি — কার্ডে চাপলে সেই অ্যাপ খুলবে</p></div>
+      <div class="sync" id="syncTxt"></div>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="grid" id="grid"></div>
+    <div class="foot">Developed By: <b>Md. Ashraful Islam</b></div>
+  </main>
+</div>
+
+<div id="ovHost"></div>
+
+<!-- ================= 🔒 PIN লক ================= -->
+<div id="alLock" role="dialog" aria-modal="true">
+<style>
+  html[data-al-open] #alLock { display: none !important; }
+  html:not([data-al-open]), html:not([data-al-open]) body { overflow: hidden !important; }
+  html:not([data-al-open]) body > *:not(#alLock) { visibility: hidden !important; }
+  #alLock {
+    position: fixed; inset: 0; z-index: 2147483647; display: flex; align-items: center; justify-content: center;
+    padding: 16px; overflow-y: auto; visibility: visible !important;
+    background: radial-gradient(circle at 20% 15%, #4b3fd6 0, transparent 45%),
+                radial-gradient(circle at 85% 90%, #0e7fb8 0, transparent 40%), #14122b;
+    font-family: 'Hind Siliguri', 'Nirmala UI', system-ui, sans-serif; color: #1a1a2e;
+  }
+  #alLock .al-card { width: 100%; max-width: 360px; background: #fff; border-radius: 22px; padding: 26px 22px 20px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.45); text-align: center; margin: auto; }
+  #alLock .al-logo { display: block; max-width: 96px; max-height: 96px; margin: 0 auto 12px; }
+  #alLock .al-org { font-size: 20px; font-weight: 800; margin: 0 0 2px; }
+  #alLock .al-app { font-size: 12.5px; font-weight: 700; color: #8a86a8; margin: 0 0 18px; }
+  #alLock .al-sub { font-size: 13px; font-weight: 600; color: #6b6b85; line-height: 1.55; margin: -4px 0 14px; }
+  #alLock .al-sub:empty { display: none; }
+  #alLock .al-f { text-align: left; margin-bottom: 10px; }
+  #alLock .al-f label { display: block; font-size: 12.5px; font-weight: 800; color: #444; margin: 0 0 5px; }
+  #alLock .al-in { display: block; width: 100%; padding: 12px 14px; border: 2px solid #e1e5f0; border-radius: 12px;
+    font-family: inherit; font-size: 18px; font-weight: 700; letter-spacing: 3px; color: #1a1a2e; background: #fff;
+    -webkit-text-security: disc; outline: none; }
+  #alLock.al-show .al-in { -webkit-text-security: none; }
+  #alLock .al-in:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.15); }
+  #alLock .al-btn { display: block; width: 100%; margin: 6px 0 0; padding: 13px; border: none; border-radius: 12px;
+    font-family: inherit; font-size: 15px; font-weight: 800; color: #fff; background: linear-gradient(135deg, #6366f1, #4338ca);
+    box-shadow: 0 6px 18px rgba(99,102,241,.35); }
+  #alLock .al-btn:disabled { opacity: .6; cursor: wait; }
+  #alLock .al-err { min-height: 18px; margin: 10px 0 0; font-size: 13px; font-weight: 700; color: #c0392b; line-height: 1.5; }
+  #alLock .al-err.ok { color: #2d6a4f; }
+  #alLock .al-row { display: flex; justify-content: space-between; gap: 10px; margin-top: 12px; }
+  #alLock .al-link { background: none; border: none; padding: 4px 0; font-family: inherit; font-size: 12.5px; font-weight: 700; color: #4338ca; }
+  #alLock .al-foot { margin-top: 14px; font-size: 11.5px; font-weight: 600; color: #9a97b5; }
+</style>
+<form class="al-card" id="alForm" autocomplete="off" novalidate>
+  <img class="al-logo" src="logo.png" alt="logo">
+  <div class="al-org">Work Hub</div>
+  <div class="al-app">সব অ্যাপের আজকের হিসাব</div>
+  <div class="al-sub" id="alSub"></div>
+  <div class="al-f" id="alFa"><label for="alA" id="alLa"></label><input class="al-in" id="alA" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+  <div class="al-f" id="alFb"><label for="alB" id="alLb"></label><input class="al-in" id="alB" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+  <div class="al-f" id="alFc"><label for="alC" id="alLc"></label><input class="al-in" id="alC" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+  <button class="al-btn" id="alBtn" type="submit"></button>
+  <div class="al-err" id="alErr"></div>
+  <div class="al-row">
+    <button class="al-link" id="alEye" type="button">👁 Show PIN</button>
+    <button class="al-link" id="alSwitch" type="button"></button>
+  </div>
+  <div class="al-foot">Authorized Holder: Md. Ashraful Islam</div>
+</form>
+<script>
+(function () {
+  var MODE = '', IDLE = 15 * 60000, MINLEN = 4, KEY = 'hub_appLockLast';
+  var root = document.documentElement, box = document.getElementById('alLock');
+  function $(id) { return document.getElementById(id); }
+  function bn(n) { return String(n).replace(/[0-9]/g, function (d) { return '০১২৩৪৫৬৭৮৯'[d]; }); }
+  var mode = '', locked = true, busy = false, mem = 0, lastWrite = 0, loginWait = false;
+
+  function readLast() { var v = 0; try { v = Number(localStorage.getItem(KEY)) || 0; } catch (e) {} return Math.max(v, mem); }
+  function writeLast(t) { mem = t; lastWrite = Date.now(); try { localStorage.setItem(KEY, String(t)); } catch (e) {} }
+  function stale() { return Date.now() - readLast() > IDLE; }
+
+  var TEXT = {
+    wait:   { sub: '⏳ একটু অপেক্ষা করুন...', a: 'Please Enter the Pin', btn: 'Enter', busy: '', sw: '' },
+    unlock: { sub: '', a: 'Please Enter the Pin', btn: 'Enter', busy: 'Logging IN...', sw: '🔑 PIN change?' },
+    setup:  { sub: 'নতুন PIN ঠিক করুন — এরপর থেকে Hub খুলতে এই PIN লাগবে। অন্তত ' + bn(MINLEN) + ' অক্ষর।',
+              a: 'New PIN', b: 'Confirm PIN', btn: 'Set PIN', busy: '⏳ সেভ হচ্ছে...', sw: '' },
+    change: { sub: 'আগে বর্তমান PIN দিন, তারপর নতুন PIN।',
+              a: 'Current PIN', b: 'New PIN', c: 'Confirm new PIN', btn: 'Change PIN', busy: '⏳ যাচাই হচ্ছে...', sw: '← ফিরে যান' }
+  };
+  function setMode(m) {
+    mode = m; var t = TEXT[m];
+    $('alSub').textContent = t.sub; $('alBtn').textContent = t.btn; $('alBtn').disabled = m === 'wait';
+    $('alLa').textContent = t.a; $('alLb').textContent = t.b || ''; $('alLc').textContent = t.c || '';
+    $('alFb').style.display = t.b ? '' : 'none'; $('alFc').style.display = t.c ? '' : 'none';
+    $('alSwitch').textContent = t.sw; $('alSwitch').style.display = t.sw ? '' : 'none';
+    $('alA').value = $('alB').value = $('alC').value = ''; msg(''); focusA();
+  }
+  function focusA() { setTimeout(function () { try { $('alA').focus(); } catch (e) {} }, 30); }
+  function msg(s, ok) { var e = $('alErr'); e.textContent = s; e.className = 'al-err' + (ok ? ' ok' : ''); }
+
+  function lock() {
+    if (!AUTH) { waitForLogin(); return; }
+    locked = true; loginWait = false;
+    root.removeAttribute('data-al-open');
+    if (document.activeElement && !box.contains(document.activeElement)) { try { document.activeElement.blur(); } catch (e) {} }
+    if (MODE) { setMode(MODE); return; }
+    setMode('wait');
+    callServer('appLockMode', []).then(function (m) {
+      MODE = m === 'setup' ? 'setup' : 'unlock';
+      if (locked && mode === 'wait') setMode(MODE);
+    }, function (err) {
+      if (/AUTH_REQUIRED/.test(err.message)) { setAuth(''); window.showLogin && showLogin(); waitForLogin(); return; }
+      msg(err.message); $('alBtn').disabled = false; $('alBtn').textContent = '🔄 আবার চেষ্টা';
+    });
+  }
+  function unlock() {
+    locked = false; loginWait = false; writeLast(Date.now());
+    $('alA').value = $('alB').value = $('alC').value = '';
+    root.setAttribute('data-al-open', '');
+  }
+  function waitForLogin() { locked = false; loginWait = true; root.setAttribute('data-al-open', ''); }
+  window.appLockWaitLogin = waitForLogin;
+  window.appLockAfterLogin = function () { if (stale()) lock(); else unlock(); };
+  window.appLockNow = function () { writeLast(0); mem = 0; lock(); };
+
+  function check() { if (!locked && !loginWait && stale()) lock(); }
+  function activity() {
+    if (locked || loginWait) return;
+    if (stale()) { lock(); return; }
+    var n = Date.now(); mem = n;
+    if (n - lastWrite > 15000) writeLast(n);
+  }
+  function run(fn, args, ok) {
+    var btn = $('alBtn'), label = btn.textContent;
+    busy = true; btn.disabled = true; btn.textContent = TEXT[mode].busy; msg('');
+    var done = function () { busy = false; btn.disabled = false; btn.textContent = label; };
+    callServer(fn, args).then(function () { done(); ok(); }, function (err) {
+      done();
+      if (/AUTH_REQUIRED/.test(err.message)) { setAuth(''); window.showLogin && showLogin(); waitForLogin(); return; }
+      msg(String(err.message).replace(/^(Exception|Error):\s*/, ''));
+      try { $('alA').select(); } catch (e) {}
+    });
+  }
+  $('alForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (busy) return;
+    if (mode === 'wait') { lock(); return; }
+    var a = $('alA').value.trim(), b = $('alB').value.trim(), c = $('alC').value.trim();
+    if (mode === 'unlock') {
+      if (!a) { msg('PIN লিখুন।'); focusA(); return; }
+      run('appLockUnlock', [a], unlock);
+    } else if (mode === 'setup') {
+      if (a.length < MINLEN) { msg('PIN অন্তত ' + bn(MINLEN) + ' অক্ষরের দিন।'); focusA(); return; }
+      if (a !== b) { msg('দুইবার একই PIN লিখুন।'); $('alB').focus(); return; }
+      run('appLockSetup', [a], function () { MODE = 'unlock'; unlock(); });
+    } else {
+      if (!a) { msg('বর্তমান PIN লিখুন।'); focusA(); return; }
+      if (b.length < MINLEN) { msg('নতুন PIN অন্তত ' + bn(MINLEN) + ' অক্ষরের দিন।'); $('alB').focus(); return; }
+      if (b !== c) { msg('নতুন PIN দুইবার একই লিখুন।'); $('alC').focus(); return; }
+      run('appLockChange', [a, b], function () { msg('✅ PIN বদলানো হয়েছে।', true); setTimeout(unlock, 900); });
+    }
+  });
+  $('alSwitch').addEventListener('click', function () { if (!busy) setMode(mode === 'change' ? 'unlock' : 'change'); });
+  $('alEye').addEventListener('click', function () {
+    var on = box.classList.toggle('al-show');
+    this.textContent = on ? '🙈 Hide PIN' : '👁 Show PIN'; focusA();
+  });
+  ['keydown', 'keypress', 'keyup'].forEach(function (t) {
+    window.addEventListener(t, function (e) {
+      if (locked && !box.contains(e.target)) { e.stopImmediatePropagation(); e.preventDefault(); if (t === 'keydown') focusA(); }
+    }, true);
+  });
+  ['pointerdown', 'mousemove', 'keydown', 'wheel', 'touchstart', 'scroll'].forEach(function (t) {
+    document.addEventListener(t, activity, { capture: true, passive: true });
+  });
+  document.addEventListener('visibilitychange', check);
+  window.addEventListener('focus', check);
+  window.addEventListener('pagehide', function () { if (!locked && mem) writeLast(mem); });
+  setInterval(check, 15000);
+
+  if (DEMO || !AUTH) waitForLogin();
+  else if (!stale()) unlock();
+  else lock();
+})();
+</script>
+</div>
+
+<script>
+/* ═════════════════════════ অ্যাপ ═════════════════════════ */
+var $ = function (id) { return document.getElementById(id); };
+var APPS = [
+  { id: 'todo',     name: 'Daily To-Do',     ico: '✅', c: '#4f46e5', url: 'https://m-ashraful.github.io/todo/' },
+  { id: 'entrylab', name: 'EntryLab',        ico: '⌨️', c: '#0098e8', url: 'https://m-ashraful.github.io/entrylab/' },
+  { id: 'cbt',      name: 'CBT Admin',       ico: '👥', c: '#0f9d6b', url: 'https://m-ashraful.github.io/cbt/admin/' },
+  { id: 'invoice',  name: 'Retailer Invoice', ico: '🧾', c: '#e0313b', url: 'https://tpl-invoice.github.io/' },
+  { id: 'tpl',      name: 'TP Inventory',    ico: '📦', c: '#8b3fd9', url: 'https://tpl-inventory.github.io/' }
+];
+var S = { data: null, loading: false, err: '' };
+var CACHE_KEY = 'hub_c1';
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function n0(v) { return (Number(v) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 }); }
+function n2(v) { var x = Number(v) || 0; return x.toLocaleString('en-IN', { maximumFractionDigits: 2 }); }
+function tk(v) { return '৳' + n0(v); }
+function pct(a, b) { return b > 0 ? Math.max(0, Math.min(100, Math.round(a / b * 100))) : 0; }
+function hm(mins) { mins = Math.round(Number(mins) || 0); var h = Math.floor(mins / 60), m = mins % 60; return h ? h + 'h ' + m + 'm' : m + 'm'; }
+function ago(t) {
+  if (!t) return '';
+  var s = Math.round((Date.now() - t) / 1000);
+  if (s < 50) return 'এইমাত্র';
+  if (s < 3600) return Math.round(s / 60) + ' মিনিট আগে';
+  return new Date(t).toLocaleTimeString('bn-BD', { hour: 'numeric', minute: '2-digit' });
+}
+function toast(m) {
+  var t = document.createElement('div'); t.className = 'toast'; t.textContent = m;
+  document.body.appendChild(t); setTimeout(function () { t.remove(); }, 2600);
+}
+function ring(p, c) {
+  var r = 26, L = 2 * Math.PI * r, d = L * p / 100;
+  return '<svg width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="' + r + '" fill="none" stroke="var(--soft)" stroke-width="7"/>' +
+    '<circle cx="32" cy="32" r="' + r + '" fill="none" stroke="' + c + '" stroke-width="7" stroke-linecap="round" stroke-dasharray="' + d + ' ' + L + '" transform="rotate(-90 32 32)"/>' +
+    '<text x="32" y="37" text-anchor="middle" font-family="Inter" font-weight="800" font-size="14" fill="var(--ink)">' + p + '%</text></svg>';
+}
+function stat(label, val, cls, sub) {
+  return '<div class="stat' + (cls ? ' ' + cls : '') + '"><small>' + label + '</small><b class="num">' + val + (sub ? '<em>' + sub + '</em>' : '') + '</b></div>';
+}
+
+/* ---------- প্রতিটা অ্যাপের কার্ড ---------- */
+var BODY = {
+  todo: function (d) {
+    var p = pct(d.done, d.total);
+    var next = (d.next || []).map(function (t) {
+      return '<div class="li">' + (t.p ? '<span class="pr ' + esc(t.p) + '" style="flex:none">' + esc(t.p) + '</span>' : '') +
+        '<span>' + esc(t.t) + '</span>' + (t.s ? '<em class="num">' + esc(t.s) + '</em>' : '') + '</div>';
+    }).join('');
+    return '<div class="ring">' + ring(p, 'var(--c)') + '<p>আজ <b>' + d.total + '</b>টা কাজের মধ্যে <b>' + d.done + '</b>টা শেষ' +
+      (d.pending ? ', <b>' + d.pending + '</b>টা বাকি' : ' — সব শেষ! 🎉') + '</p></div>' +
+      '<div class="stats">' + stat('মোট কাজ', d.total) + stat('শেষ', d.done, 'good') + stat('বকেয়া', d.overdue, d.overdue ? 'bad' : '') + '</div>' +
+      (next ? '<div class="sec">পরের কাজ<span>' + d.pending + 'টা বাকি</span></div><div class="list">' + next + '</div>' : '');
+  },
+  entrylab: function (d) {
+    var t = d.today || {}, m = d.month || {};
+    return '<div class="stats">' + stat('আজকের Entry', n0(t.entries), 'hl') + stat('কাজের সময়', hm(t.minutes)) + stat('Avg / ঘণ্টা', n2(t.avg)) + '</div>' +
+      '<div class="sec">আজকের লক্ষ্য (' + n2(t.target) + ' ঘণ্টা)<span>' + esc(t.left || '') + '</span></div>' +
+      '<div class="bar"><i style="width:' + (t.pct || 0) + '%"></i></div>' +
+      '<div class="sec">' + esc(m.name || 'এই মাস') + '<span>' + esc(m.rating || '') + '</span></div>' +
+      '<div class="bar"><i style="width:' + (m.pct || 0) + '%"></i></div>' +
+      '<div class="barline"><span class="num">' + n2(m.hours) + ' / ' + n0(m.goal) + ' ঘণ্টা</span><span class="num">' + n0(m.entries) + ' Entry</span></div>' +
+      '<div class="big"><small>এ মাসের বেতন (ইন্টারনেট বিলসহ)</small><b class="num">' + tk(m.payable) + '</b></div>';
+  },
+  cbt: function (d) {
+    var t = d.today || {}, m = d.month || {}, p = pct(d.submitted, d.active);
+    var miss = (d.missingNames || []).map(function (n) { return '<span class="tag">' + esc(n) + '</span>'; }).join('');
+    if (d.missing > (d.missingNames || []).length) miss += '<span class="tag">+' + (d.missing - d.missingNames.length) + ' জন</span>';
+    return '<div class="ring">' + ring(p, 'var(--c)') + '<p><b>' + d.active + '</b> জনের মধ্যে <b>' + d.submitted + '</b> জন আজ জমা দিয়েছে' +
+      (d.missing ? ', <b>' + d.missing + '</b> জন বাকি' : ' — সবাই দিয়েছে ✅') + '</p></div>' +
+      '<div class="stats">' + stat('আজ Submission', n0(t.sub), '', t.ok + ' ঠিক') + stat('আজকের সমস্যা', n0(t.issues + t.noSC), (t.issues + t.noSC) ? 'bad' : 'good') + stat('আজকের বেতন', tk(t.sal)) + '</div>' +
+      (miss ? '<div class="sec">এখনো জমা দেয়নি</div><div class="tags">' + miss + '</div>' : '') +
+      '<div class="sec">এই মাসের বেতন<span class="num">' + n0(m.sub) + ' submission</span></div>' +
+      '<div class="stats">' + stat('মোট', tk(m.sal), 'hl') + stat('পরিশোধ', tk(m.paid), 'good') + stat('বাকি' + (m.dueN ? ' · ' + m.dueN + ' জন' : ''), tk(m.due), m.due ? 'bad' : '') + '</div>';
+  },
+  invoice: function (d) {
+    var t = d.today || {}, m = d.month || {};
+    return '<div class="stats">' + stat('আজকের Invoice', n0(t.invoices), 'hl') + stat('আজ বিক্রি', tk(t.sales)) + stat('আজ আদায়', tk(t.collected), 'good') + '</div>' +
+      '<div class="sec">এই মাস<span class="num">' + n0(m.invoices) + ' Invoice</span></div>' +
+      '<div class="stats" style="grid-template-columns:1fr 1fr">' + stat('বিক্রি', tk(m.sales)) + stat('আদায়', tk(m.collected), 'good') + '</div>' +
+      '<div class="big"><small>সব দোকানের মোট বাকি</small><b class="num" style="color:var(--neg)">' + tk(d.due) + '</b></div>';
+  },
+  tpl: function (d) {
+    if (d.error) return '<div class="err">' + esc(d.error) + '</div>';
+    var s = d.split || {};
+    var low = (d.low || []).map(function (b) { return '<span class="tag">' + esc(b.n) + ' <b>' + b.c + '</b></span>'; }).join('');
+    var out = (d.out || []).map(function (n) { return '<span class="tag bad">' + esc(n) + '</span>'; }).join('');
+    return '<div class="stats">' + stat('আজ বিক্রি', n0(d.qty), 'hl', 'কপি') + stat('টাকা', tk(d.amt)) + stat('এন্ট্রি', n0(d.entries)) + '</div>' +
+      '<div class="sec">ধরন অনুযায়ী</div><div class="tags">' +
+        '<span class="tag">TPL <b>' + n0(s.tpl) + '</b> · ' + tk(s.tplAmt) + '</span>' +
+        '<span class="tag">TTH <b>' + n0(s.tth) + '</b> · ' + tk(s.tthAmt) + '</span>' +
+        '<span class="tag">ECom <b>' + n0(s.ecom) + '</b> · ' + tk(s.ecomAmt) + '</span></div>' +
+      '<div class="sec">স্টক সতর্কতা<span>' + d.threshold + ' বা কম = কম স্টক</span></div>' +
+      '<div class="stats" style="grid-template-columns:1fr 1fr">' + stat('কম স্টক', n0(d.lowN), d.lowN ? 'bad' : 'good', 'টা বই') + stat('শেষ', n0(d.outN), d.outN ? 'bad' : 'good', 'টা বই') + '</div>' +
+      (out || low ? '<div class="tags" style="margin-top:8px">' + out + low + '</div>' : '');
+  }
+};
+
+// উপরের ছোট সারাংশ — প্রতিটা অ্যাপের একটাই মূল সংখ্যা
+var CHIP = {
+  todo: function (d) { return [d.done + '/' + d.total + ' কাজ', 'To-Do']; },
+  entrylab: function (d) { return [n0(d.today.entries) + ' Entry', 'EntryLab · ' + hm(d.today.minutes)]; },
+  cbt: function (d) { return [d.submitted + '/' + d.active + ' জমা', 'CBT আজ']; },
+  invoice: function (d) { return [tk(d.today.sales), 'Invoice · আজ বিক্রি']; },
+  tpl: function (d) { return d.error ? ['—', 'TP Inventory'] : [tk(d.amt), 'TPL · ' + n0(d.qty) + ' কপি']; }
+};
+
+function render() {
+  var D = S.data, apps = (D && D.apps) || {};
+  $('chips').innerHTML = APPS.map(function (a) {
+    var r = apps[a.id], v = ['…', a.name];
+    if (r && r.ok) { try { v = CHIP[a.id](r.data); } catch (e) {} }
+    else if (r) v = ['⚠️', a.name];
+    return '<a class="chip" href="' + a.url + '" target="_blank" rel="noopener"><i style="background:color-mix(in srgb,' + a.c + ' 14%,transparent)">' + a.ico + '</i>' +
+      '<div><small>' + esc(v[1]) + '</small><b class="num">' + esc(v[0]) + '</b></div></a>';
+  }).join('');
+
+  $('grid').innerHTML = APPS.map(function (a) {
+    var r = apps[a.id], body;
+    if (!r) body = '<div class="sk" style="width:70%"></div><div class="sk"></div><div class="sk" style="width:55%"></div><div class="sk" style="width:80%"></div>';
+    else if (!r.ok) body = '<div class="err">⚠️ ' + esc(r.error) + '<br><button data-retry>আবার চেষ্টা</button></div>';
+    else { try { body = BODY[a.id](r.data); } catch (e) { body = '<div class="err">দেখাতে সমস্যা: ' + esc(e.message) + '</div>'; } }
+    var sub = r && r.ok ? 'হালনাগাদ ' + ago(r.at) : (r ? 'হিসাব আনা যায়নি' : 'আনা হচ্ছে…');
+    return '<section class="card" style="--c:' + a.c + '"><div class="ch"><i>' + a.ico + '</i><div><b>' + esc(a.name) + '</b><small>' + sub + '</small></div>' +
+      '<a href="' + a.url + '" target="_blank" rel="noopener">খুলুন ↗</a></div><div class="cb">' + body + '</div></section>';
+  }).join('');
+
+  $('syncTxt').textContent = S.loading ? '⏳ হালনাগাদ হচ্ছে…' : (S.err ? '⚠️ ' + S.err : (D ? 'শেষ হালনাগাদ: ' + ago(D.at) : ''));
+}
+
+function header() {
+  var d = new Date(), h = d.getHours();
+  $('todayTxt').textContent = d.toLocaleDateString('bn-BD', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  $('hello').textContent = (h < 12 ? 'শুভ সকাল' : h < 17 ? 'শুভ দুপুর' : h < 20 ? 'শুভ সন্ধ্যা' : 'শুভ রাত্রি') + ' — আজকের হিসাব';
+}
+
+function load(force) {
+  if (S.loading) return;
+  S.loading = true; S.err = '';
+  $('refBtn').classList.add('spin');
+  render();
+  callServer('apiSummary', [!!force]).then(function (d) {
+    S.data = d;
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(d)); } catch (e) {}
+    if (force) toast('✓ হালনাগাদ হয়েছে');
+  }, function (err) {
+    if (/AUTH_REQUIRED/.test(err.message)) { logoutLocal(); return; }
+    S.err = err.message;
+  }).then(function () {
+    S.loading = false; $('refBtn').classList.remove('spin'); render();
+  });
+}
+
+function showApp() {
+  $('login').hidden = true; $('app').hidden = false;
+  header();
+  // আগের বারের হিসাব সাথে সাথে দেখাই, তারপর নতুনটা আনি
+  if (!S.data) { try { S.data = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); } catch (e) {} }
+  render();
+  load(false);
+}
+
+/* ---------- লগইন ---------- */
+var LG = { email: '' };
+function showLogin() {
+  $('app').hidden = true; $('login').hidden = false;
+  lgStep(1);
+  if (window.appLockWaitLogin) appLockWaitLogin();
+}
+function lgStep(n) {
+  $('lgStep1').hidden = n !== 1; $('lgStep2').hidden = n !== 2; $('lgBack').hidden = n !== 2;
+  $('lgBtn').textContent = n === 1 ? 'কোড পাঠান' : 'লগইন';
+  lgMsg(n === 2 ? LG.email + ' — ইনবক্সে কোড গেছে (Spam-ও দেখুন)।' : '', true);
+  setTimeout(function () { (n === 1 ? $('lgEmail') : $('lgCode')).focus(); }, 30);
+}
+function lgMsg(m, ok) { var e = $('lgMsg'); e.textContent = m; e.className = 'lg-msg' + (ok ? ' ok' : ''); }
+function device() {
+  var u = navigator.userAgent;
+  var os = /Android/.test(u) ? 'Android' : /iPhone|iPad/.test(u) ? 'iPhone' : /Windows/.test(u) ? 'Windows' : /Mac/.test(u) ? 'Mac' : 'অন্য';
+  var br = /Edg\//.test(u) ? 'Edge' : /Chrome\//.test(u) ? 'Chrome' : /Firefox\//.test(u) ? 'Firefox' : /Safari\//.test(u) ? 'Safari' : 'Browser';
+  return os + ' · ' + br;
+}
+$('lgForm').addEventListener('submit', function (e) {
+  e.preventDefault();
+  var btn = $('lgBtn'); if (btn.disabled) return;
+  var step1 = !$('lgStep1').hidden;
+  var done = function () { btn.disabled = false; btn.textContent = step1 ? 'কোড পাঠান' : 'লগইন'; };
+  if (step1) {
+    var em = $('lgEmail').value.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { lgMsg('ঠিক ইমেইল লিখুন।'); return; }
+    btn.disabled = true; btn.textContent = '⏳ পাঠানো হচ্ছে…'; lgMsg('');
+    callServer('apiSendCode', [em]).then(function () { LG.email = em; done(); lgStep(2); }, function (err) { done(); lgMsg(err.message); });
+  } else {
+    var code = $('lgCode').value.replace(/\D/g, '');
+    if (code.length !== 6) { lgMsg('৬ সংখ্যার কোড লিখুন।'); return; }
+    btn.disabled = true; btn.textContent = '⏳ যাচাই হচ্ছে…'; lgMsg('');
+    callServer('apiVerifyCode', [LG.email, code, device()]).then(function (tok) {
+      done(); setAuth(tok); $('lgCode').value = '';
+      showApp();
+      if (window.appLockAfterLogin) appLockAfterLogin();
+    }, function (err) { done(); lgMsg(err.message); });
+  }
+});
+$('lgBack').addEventListener('click', function () { lgStep(1); });
+
+function logoutLocal() {
+  setAuth(''); S.data = null;
+  try { localStorage.removeItem(CACHE_KEY); } catch (e) {}
+  showLogin();
+}
+
+/* ---------- মেনু, থিম, রিফ্রেশ ---------- */
+$('refBtn').addEventListener('click', function () { load(true); });
+$('themeBtn').addEventListener('click', function () {
+  var t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  try { localStorage.setItem('hub_theme', t); } catch (e) {}
+  themeIcon();
+});
+function themeIcon() { $('themeBtn').textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙'; }
+themeIcon();
+$('menuBtn').addEventListener('click', function (e) { e.stopPropagation(); $('menu').hidden = !$('menu').hidden; });
+document.addEventListener('click', function (e) {
+  if (!$('menu').hidden && !$('menu').contains(e.target)) $('menu').hidden = true;
+  if (e.target.closest && e.target.closest('[data-retry]')) load(true);
+});
+$('menu').addEventListener('click', function (e) {
+  var b = e.target.closest('button'); if (!b) return;
+  $('menu').hidden = true;
+  var act = b.getAttribute('data-act');
+  if (act === 'lock') { if (window.appLockNow) appLockNow(); }
+  else if (act === 'logout') {
+    if (!confirm('এই ডিভাইস থেকে লগআউট করবেন? আবার ঢুকতে ইমেইল কোড লাগবে।')) return;
+    callServer('apiLogout', []).catch(function () {}).then(logoutLocal);
+  } else if (act === 'security') openSecurity();
+});
+// ২ মিনিট পরপর নিজে থেকে হালনাগাদ (পাতা খোলা থাকলে)
+setInterval(function () { if (!document.hidden && !$('app').hidden) { header(); load(false); } }, 120000);
+document.addEventListener('visibilitychange', function () { if (!document.hidden && !$('app').hidden && S.data && Date.now() - S.data.at > 120000) load(false); });
+
+/* ---------- 🛡️ নিরাপত্তা ---------- */
+function openSecurity() {
+  $('ovHost').innerHTML = '<div class="ov" id="ov"><div class="sheet"><h3>🛡️ নিরাপত্তা <button class="sbtn" id="ovX">✕</button></h3><div id="secBody"><div class="sk"></div><div class="sk"></div></div></div></div>';
+  $('ovX').onclick = closeOv;
+  $('ov').addEventListener('click', function (e) { if (e.target.id === 'ov') closeOv(); });
+  secCall('apiSecurity', []);
+}
+function closeOv() { $('ovHost').innerHTML = ''; }
+function secCall(fn, args) {
+  callServer(fn, args).then(secRender, function (err) {
+    if ($('secBody')) $('secBody').insertAdjacentHTML('afterbegin', '<div class="err" style="margin-bottom:10px">' + esc(err.message) + '</div>');
+  });
+}
+function secRender(s) {
+  var b = $('secBody'); if (!b) return;
+  if (s.notOwner) { b.innerHTML = '<p>আপনি (' + esc(s.me) + ') Hub দেখতে পারেন। অনুমতি আর ডিভাইসের তালিকা শুধু মালিক দেখেন।</p>'; return; }
+  var users = s.users.map(function (u) {
+    return '<div class="row"><span>' + esc(u) + '</span><button class="sbtn red" data-rm="' + esc(u) + '">বাদ দিন</button></div>';
+  }).join('') || '<p>মালিক ছাড়া আর কেউ নেই।</p>';
+  var dt = function (t) { return t ? new Date(t).toLocaleString('bn-BD', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '—'; };
+  var ses = s.sessions.map(function (x) {
+    return '<div class="row"><span>' + esc(x.device) + (x.current ? ' <b style="color:var(--pos)">(এই ডিভাইস)</b>' : '') +
+      '<small>' + esc(x.email) + ' · শেষ দেখা ' + dt(x.last) + '</small></span>' +
+      (x.current ? '' : '<button class="sbtn red" data-rv="' + esc(x.id) + '">বের করুন</button>') + '</div>';
+  }).join('');
+  b.innerHTML = '<p>মালিক: <b>' + esc(s.owner) + '</b> — সবসময় ঢুকতে পারেন। দিনে একটা ইমেইলে সর্বোচ্চ ' + s.limit + 'টা কোড।</p>' +
+    '<h4>যাঁরা Hub খুলতে পারবেন</h4>' + users +
+    '<div class="add"><input id="secEm" type="email" placeholder="নতুন ইমেইল"><button class="sbtn pri" id="secAdd">যোগ করুন</button></div>' +
+    '<h4>লগইন থাকা ডিভাইস (' + s.sessions.length + ')</h4>' + ses +
+    (s.sessions.length > 1 ? '<button class="sbtn red" id="secOthers" style="margin-top:6px">অন্য সব ডিভাইস থেকে বের করে দিন</button>' : '');
+  $('secAdd').onclick = function () { var v = $('secEm').value.trim(); if (v) secCall('apiAddUser', [v]); };
+  b.querySelectorAll('[data-rm]').forEach(function (x) { x.onclick = function () { if (confirm(x.dataset.rm + ' — বাদ দেবেন? তাঁর সব লগইনও বন্ধ হবে।')) secCall('apiRemoveUser', [x.dataset.rm]); }; });
+  b.querySelectorAll('[data-rv]').forEach(function (x) { x.onclick = function () { secCall('apiRevokeSession', [x.dataset.rv]); }; });
+  if ($('secOthers')) $('secOthers').onclick = function () { if (confirm('এই ডিভাইস বাদে সব জায়গা থেকে লগআউট করবেন?')) secCall('apiRevokeOthers', []); };
+}
+
+/* ---------- নমুনা ডেটা (?demo) ---------- */
+function demoCall(fn) {
+  return new Promise(function (ok) {
+    setTimeout(function () {
+      if (fn === 'apiSecurity') return ok({ owner: 'coo.tpl.tee@gmail.com', users: ['buac243@gmail.com'], limit: 10,
+        sessions: [{ id: 'a'.repeat(30), email: 'coo.tpl.tee@gmail.com', device: 'Windows · Chrome', last: Date.now(), current: true },
+                   { id: 'b'.repeat(30), email: 'buac243@gmail.com', device: 'Android · Chrome', last: Date.now() - 3600e3 }] });
+      var at = Date.now() - 40e3;
+      ok({ at: at, apps: {
+        todo: { ok: true, at: at, data: { total: 9, done: 5, pending: 4, overdue: 2, next: [
+          { t: 'Boss Report পাঠানো', s: '17:00', p: 'Must' }, { t: 'TPL স্টক মিলানো', s: '', p: 'Should' },
+          { t: 'CBT বেতনের লিস্ট বানানো', s: '18:30', p: 'Should' }, { t: 'Invoice ফাইল গুছানো', s: '', p: 'Could' }] } },
+        entrylab: { ok: true, at: at, data: { today: { entries: 412, hours: 6.5, minutes: 390, avg: 63.38, target: 8, pct: 81, left: '1h 30m left' },
+          month: { name: 'October 2026', hours: 142.5, goal: 200, entries: 11820, payable: 15350, pct: 71, rating: 'Good' } } },
+        cbt: { ok: true, at: at, data: { active: 24, submitted: 19, missing: 5, missingNames: ['Rakib', 'Sumaiya', 'Tanvir', 'Nusrat', 'Arif'],
+          today: { sub: 46, ok: 42, sal: 2100, issues: 3, noSC: 1 }, month: { sub: 980, sal: 48600, paid: 21000, due: 27600, dueN: 13 } } },
+        invoice: { ok: true, at: at, data: { today: { invoices: 6, sales: 48250, collected: 30000 }, month: { invoices: 88, sales: 812400, collected: 655000 }, due: 386720 } },
+        tpl: { ok: true, at: at, data: { qty: 238, amt: 61940, entries: 14, threshold: 20, lowN: 4, outN: 1,
+          split: { tpl: 120, tth: 76, ecom: 42, tplAmt: 31200, tthAmt: 19740, ecomAmt: 11000 },
+          low: [{ n: 'HSC ICT', c: 6 }, { n: 'SSC Math', c: 11 }, { n: 'Physics 1st', c: 15 }, { n: 'English Grammar', c: 18 }], out: ['Biology 2nd'] } }
+      } });
+    }, 500);
+  });
+}
+
+/* ---------- শুরু ---------- */
+if (AUTH) showApp(); else showLogin();
+</script>
+</body>
+</html>
