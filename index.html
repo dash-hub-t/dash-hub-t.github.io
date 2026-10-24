@@ -448,7 +448,7 @@ var APPS = [
   { id: 'invoice',  name: 'Retailer Invoice', ico: '🧾', c: '#e0313b', url: 'https://tpl-invoice.github.io/' },
   { id: 'tpl',      name: 'TP Inventory',    ico: '📦', c: '#8b3fd9', url: 'https://tpl-inventory.github.io/' }
 ];
-var S = { data: null, loading: false, err: '' };
+var S = { data: null, loading: false, err: '', pending: {} };
 var CACHE_KEY = 'hub_c1';
 
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -559,7 +559,8 @@ function render() {
     if (!r) body = '<div class="sk" style="width:70%"></div><div class="sk"></div><div class="sk" style="width:55%"></div><div class="sk" style="width:80%"></div>';
     else if (!r.ok) body = '<div class="err">⚠️ ' + esc(r.error) + '<br><button data-retry>আবার চেষ্টা</button></div>';
     else { try { body = BODY[a.id](r.data); } catch (e) { body = '<div class="err">দেখাতে সমস্যা: ' + esc(e.message) + '</div>'; } }
-    var sub = r && r.ok ? 'হালনাগাদ ' + ago(r.at) : (r ? 'হিসাব আনা যায়নি' : 'আনা হচ্ছে…');
+    var sub = S.pending && S.pending[a.id] ? '⏳ হালনাগাদ হচ্ছে…'
+            : r && r.ok ? 'হালনাগাদ ' + ago(r.at) : (r ? 'হিসাব আনা যায়নি' : 'আনা হচ্ছে…');
     return '<section class="card" style="--c:' + a.c + '"><div class="ch"><i>' + a.ico + '</i><div><b>' + esc(a.name) + '</b><small>' + sub + '</small></div>' +
       '<a href="' + a.url + '" target="_blank" rel="noopener">খুলুন ↗</a></div><div class="cb">' + body + '</div></section>';
   }).join('');
@@ -573,21 +574,35 @@ function header() {
   $('hello').textContent = (h < 12 ? 'শুভ সকাল' : h < 17 ? 'শুভ দুপুর' : h < 20 ? 'শুভ সন্ধ্যা' : 'শুভ রাত্রি') + ' — আজকের হিসাব';
 }
 
+/* প্রতিটা অ্যাপের জন্য আলাদা কল, একসাথে — যেটা আগে আসে তার কার্ড আগে ভরে
+ * (CBT-র হিসাব বেশি সময় নেয়, বাকিরা তার জন্য অপেক্ষা করে না) */
 function load(force) {
   if (S.loading) return;
-  S.loading = true; S.err = '';
+  S.loading = true; S.err = ''; S.pending = {};
   $('refBtn').classList.add('spin');
-  render();
-  callServer('apiSummary', [!!force]).then(function (d) {
-    S.data = d;
-    try { localStorage.setItem(CACHE_KEY, JSON.stringify(d)); } catch (e) {}
-    if (force) toast('✓ হালনাগাদ হয়েছে');
-  }, function (err) {
-    if (/AUTH_REQUIRED/.test(err.message)) { logoutLocal(); return; }
-    S.err = err.message;
-  }).then(function () {
-    S.loading = false; $('refBtn').classList.remove('spin'); render();
+  if (!S.data) S.data = { at: 0, apps: {} };
+  var left = APPS.length, authGone = false;
+  APPS.forEach(function (a) {
+    S.pending[a.id] = 1;
+    callServer('apiSummary', [!!force, a.id]).then(function (d) {
+      var r = d && d.apps && d.apps[a.id];
+      if (r && (r.ok || !(S.data.apps[a.id] && S.data.apps[a.id].ok))) S.data.apps[a.id] = r;
+    }, function (err) {
+      if (/AUTH_REQUIRED/.test(err.message)) { authGone = true; return; }
+      S.err = err.message;
+      if (!(S.data.apps[a.id] && S.data.apps[a.id].ok)) S.data.apps[a.id] = { ok: false, error: err.message };
+    }).then(function () {
+      delete S.pending[a.id];
+      if (--left > 0) { render(); return; }
+      S.loading = false; $('refBtn').classList.remove('spin');
+      if (authGone) { logoutLocal(); return; }
+      S.data.at = Date.now();
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify(S.data)); } catch (e) {}
+      if (force && !S.err) toast('✓ হালনাগাদ হয়েছে');
+      render();
+    });
   });
+  render();
 }
 
 function showApp() {
