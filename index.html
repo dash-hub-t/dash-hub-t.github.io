@@ -124,6 +124,20 @@ button{cursor:pointer}
   background:radial-gradient(closest-side,rgba(192,132,252,.55),rgba(244,114,182,.25) 60%,transparent)}
 .girl img{display:block;height:100%;width:auto;transform:scaleX(-1);filter:drop-shadow(0 6px 10px rgba(76,29,149,.25))} /* উল্টানো — হাতটা লেখার দিকে */
 @keyframes wave{0%,55%,100%{transform:rotate(0)}10%{transform:rotate(-3deg)}22%{transform:rotate(2.5deg)}34%{transform:rotate(-1.5deg)}45%{transform:rotate(1deg)}}
+.girl.wl-hide{visibility:hidden;animation:none}
+/* PIN দিয়ে খোলার পর স্বাগতম — মেয়েটা বড় হয়ে মাঝে আসে, তারপর উড়ে নিজের জায়গায় বসে */
+#welcome{position:fixed;inset:0;z-index:70;overflow:hidden;cursor:pointer}
+.wl-bg{position:absolute;inset:0;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  background:radial-gradient(60% 50% at 50% 42%,rgba(192,132,252,.55),transparent 70%),
+             radial-gradient(40% 35% at 30% 70%,rgba(244,114,182,.35),transparent 70%),rgba(22,14,48,.72)}
+.wl-girl{position:absolute;left:50%;top:44%;height:min(58vh,440px);transform:translate(-50%,-50%);transform-origin:0 0}
+.wl-girl::before{content:"";position:absolute;inset:8% -20% 4%;border-radius:50%;z-index:-1;filter:blur(30px);
+  background:radial-gradient(closest-side,rgba(232,121,249,.7),rgba(139,92,246,.35) 60%,transparent)}
+.wl-girl img{display:block;height:100%;width:auto;transform:scaleX(-1);filter:drop-shadow(0 18px 30px rgba(0,0,0,.35))}
+.wl-txt{position:absolute;left:0;right:0;top:calc(44% + min(29vh,220px) + 14px);text-align:center;color:#fff;padding:0 16px}
+.wl-txt b{display:block;font-size:clamp(26px,6vw,38px);font-weight:700;letter-spacing:.01em;text-shadow:0 4px 18px rgba(0,0,0,.35)}
+.wl-txt b span{background:linear-gradient(90deg,#f9a8d4,#c4b5fd);-webkit-background-clip:text;background-clip:text;color:transparent}
+.wl-txt i{display:block;font-style:normal;font-size:15px;opacity:.8;margin-top:6px}
 
 /* ---------- লগইন ---------- */
 #login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;
@@ -315,6 +329,9 @@ main{max-width:1200px;margin:0 auto;padding:18px 16px 30px}
 </div>
 
 <!-- ================= অ্যাপ ================= -->
+<div id="welcome" hidden aria-hidden="true"><div class="wl-bg"></div>
+  <div class="wl-girl"><img src="girl.webp" alt=""></div>
+  <div class="wl-txt"><b id="wlHi"></b><i>আপনার আজকের সব হিসাব তৈরি</i></div></div>
 <div id="app" hidden>
   <header class="top">
     <div class="top-in">
@@ -337,7 +354,7 @@ main{max-width:1200px;margin:0 auto;padding:18px 16px 30px}
 
   <main>
     <div class="hello">
-      <div class="hi"><span class="girl" aria-hidden="true"><img src="girl.webp" alt="" width="83" height="110" decoding="async"></span>
+      <div class="hi"><span class="girl" aria-hidden="true"><img src="girl.webp" alt="" width="85" height="110" decoding="async"></span>
         <div><h2 id="hello"></h2><p>কার্ডের মাথায় চাপলে ছোট/বড় হয় · "খুলুন" চাপলে সেই অ্যাপ</p></div></div>
       <div class="sync" id="syncTxt"></div>
     </div>
@@ -483,11 +500,11 @@ main{max-width:1200px;margin:0 auto;padding:18px 16px 30px}
     var a = $('alA').value.trim(), b = $('alB').value.trim(), c = $('alC').value.trim();
     if (mode === 'unlock') {
       if (!a) { msg('PIN লিখুন।'); focusA(); return; }
-      run('appLockUnlock', [a], unlock);
+      run('appLockUnlock', [a], function () { unlock(); window.hubWelcome && hubWelcome(); });
     } else if (mode === 'setup') {
       if (a.length < MINLEN) { msg('PIN অন্তত ' + bn(MINLEN) + ' অক্ষরের দিন।'); focusA(); return; }
       if (a !== b) { msg('দুইবার একই PIN লিখুন।'); $('alB').focus(); return; }
-      run('appLockSetup', [a], function () { MODE = 'unlock'; unlock(); });
+      run('appLockSetup', [a], function () { MODE = 'unlock'; unlock(); window.hubWelcome && hubWelcome(); });
     } else {
       if (!a) { msg('বর্তমান PIN লিখুন।'); focusA(); return; }
       if (b.length < MINLEN) { msg('নতুন PIN অন্তত ' + bn(MINLEN) + ' অক্ষরের দিন।'); $('alB').focus(); return; }
@@ -699,6 +716,43 @@ function header() {
   $('todayTxt').textContent = d.toLocaleDateString('bn-BD', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   var g = h < 5 ? 'শুভ রাত্রি' : h < 12 ? 'শুভ সকাল' : h < 17 ? 'শুভ দুপুর' : h < 20 ? 'শুভ সন্ধ্যা' : 'শুভ রাত্রি';
   $('hello').innerHTML = g + (P.name ? ', <span>' + esc(P.name) + '</span>' : '');
+}
+
+/* PIN দিয়ে খোলার পর স্বাগতম (~২ সেকেন্ড): মেয়েটা বড় হয়ে মাঝে এসে হাত নাড়ে,
+ * তারপর উড়ে গিয়ে শুভেচ্ছার পাশে নিজের জায়গায় বসে। চাপ দিলে সাথে সাথে বসে যায়। */
+function hubWelcome() {
+  var wl = $('welcome'), seat = document.querySelector('.hi .girl');
+  if (!wl || !seat || !wl.animate || $('app').hidden || !wl.hidden) return;
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var fig = wl.querySelector('.wl-girl'), bg = wl.querySelector('.wl-bg'), txt = wl.querySelector('.wl-txt');
+  $('wlHi').innerHTML = 'স্বাগতম' + (P.name ? ', <span>' + esc(P.name) + '</span>' : '') + '!';
+  seat.classList.add('wl-hide'); wl.hidden = false;
+  var ease = 'cubic-bezier(.2,.9,.25,1.15)', gone = false, tm;
+  bg.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 350, fill: 'both' });
+  fig.animate([{ opacity: 0, transform: 'translate(-50%,-38%) scale(.75)' }, { opacity: 1, transform: 'translate(-50%,-50%) scale(1)' }],
+    { duration: 650, easing: ease, fill: 'both' });
+  var sway = fig.querySelector('img').animate([{ rotate: '0deg' }, { rotate: '-3deg' }, { rotate: '2.5deg' }, { rotate: '-1.5deg' }, { rotate: '0deg' }],
+    { duration: 900, delay: 450, easing: 'ease-in-out' });
+  txt.animate([{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], { duration: 450, delay: 300, easing: 'ease-out', fill: 'both' });
+  function fly() {
+    if (gone) return; gone = true; clearTimeout(tm); sway.cancel();
+    // FLIP: বড় ছবির জায়গা থেকে শুভেচ্ছার পাশের ছোট ছবির জায়গায়
+    var a = fig.getBoundingClientRect(), b = seat.getBoundingClientRect(), k = b.height / a.height;
+    var to = 'translate(' + (b.left - a.left) + 'px,' + (b.top - a.top) + 'px) scale(' + k + ')';
+    fig.style.transform = 'none'; fig.style.left = a.left + 'px'; fig.style.top = a.top + 'px';
+    fig.getAnimations().forEach(function (x) { x.cancel(); });
+    txt.animate([{ opacity: 1 }, { opacity: 0, transform: 'translateY(10px)' }], { duration: 250, fill: 'both' });
+    bg.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 700, delay: 150, fill: 'both' });
+    fig.animate([{ transform: 'none' }, { transform: 'translate(' + (b.left - a.left) * .55 + 'px,' + ((b.top - a.top) * .55 - 30) + 'px) scale(' + (1 + (k - 1) * .5) + ')', offset: .55 },
+      { transform: to }], { duration: 800, easing: 'cubic-bezier(.55,0,.25,1)', fill: 'both' }).onfinish = done;
+  }
+  function done() {
+    seat.classList.remove('wl-hide'); wl.hidden = true;
+    [fig, bg, txt, fig.querySelector('img')].forEach(function (e) { e.getAnimations().forEach(function (x) { x.cancel(); }); });
+    fig.removeAttribute('style'); wl.onclick = null;
+  }
+  wl.onclick = fly;
+  tm = setTimeout(fly, 1400);
 }
 
 /* প্রতিটা অ্যাপের জন্য আলাদা কল, একসাথে — যেটা আগে আসে তার কার্ড আগে ভরে
