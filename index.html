@@ -35,7 +35,7 @@ function setAuth(t) {
 /* সাজানোর পছন্দ — আগে এই ব্রাউজারের কপি, পরে সার্ভারের (সব ডিভাইসে এক) */
 var PREF_DEF = {
   order: ['todo', 'entrylab', 'cbt', 'invoice', 'tpl'], hidden: [], collapsed: [],
-  density: 'full', chips: true, theme: 'auto', accent: 'brand', cols: 'auto', refresh: 2, name: '', ts: 0
+  density: 'full', chips: true, theme: 'auto', accent: 'brand', cols: 'auto', refresh: 2, name: 'বস', ts: 0
 };
 var P = JSON.parse(JSON.stringify(PREF_DEF));
 try { var _p = JSON.parse(localStorage.getItem('hub_prefs') || 'null'); if (_p) for (var k in _p) P[k] = _p[k]; } catch (e) {}
@@ -99,16 +99,26 @@ function markSvg(cls) {
 [data-theme=dark][data-accent=rose]{--acc:#fb7185} [data-theme=dark][data-accent=amber]{--acc:#fbbf24}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{background:var(--bg);color:var(--ink)}
+/* পেছনে রঙিন gradient — লোগোর নীল/বেগুনি/গোলাপি আভা, একেবারে সাদা নয় */
 body{font-family:'Hind Siliguri','Inter','Nirmala UI',system-ui,sans-serif;min-height:100vh;
-  background:radial-gradient(1100px 480px at 8% -12%,color-mix(in srgb,var(--m1) 16%,transparent),transparent 60%),
-             radial-gradient(900px 420px at 100% -5%,color-mix(in srgb,var(--m3) 11%,transparent),transparent 60%),var(--bg);
+  background:radial-gradient(900px 620px at -5% -10%,rgba(99,102,241,.30),transparent 62%),
+             radial-gradient(820px 600px at 105% 5%,rgba(192,38,211,.22),transparent 60%),
+             radial-gradient(1000px 700px at 50% 115%,rgba(14,165,233,.20),transparent 62%),
+             linear-gradient(160deg,#e9ebff 0%,#f3ecff 45%,#fcecf6 100%);
   background-attachment:fixed;-webkit-font-smoothing:antialiased}
+[data-theme=dark] body{
+  background:radial-gradient(900px 620px at -5% -10%,rgba(79,70,229,.35),transparent 62%),
+             radial-gradient(820px 600px at 105% 5%,rgba(192,38,211,.22),transparent 60%),
+             radial-gradient(1000px 700px at 50% 115%,rgba(14,116,144,.25),transparent 62%),
+             linear-gradient(160deg,#0f1030 0%,#160f2e 50%,#1d0c26 100%);
+  background-attachment:fixed}
 button,input{font-family:inherit}
 button{cursor:pointer}
 .num{font-family:'Inter',sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 [hidden]{display:none!important}
-.mk .cur{animation:blink 1.1s steps(1) infinite}
-@keyframes blink{50%{opacity:0}}
+/* শুভেচ্ছার হাসিখুশি মেয়ের ছবি — একটু মাথা দোলায় */
+.girl{width:44px;height:44px;vertical-align:-11px;margin-left:6px;transform-origin:50% 90%;animation:nod 2.6s ease-in-out infinite}
+@keyframes nod{0%,100%{transform:rotate(0)}25%{transform:rotate(-7deg)}60%{transform:rotate(5deg)}}
 
 /* ---------- লগইন ---------- */
 #login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;
@@ -548,6 +558,7 @@ function stat(label, val, cls, sub) {
  * order = কার্ডের ক্রম, hidden = লুকানো, collapsed = ছোট করা কার্ড। এই ব্রাউজারে সাথে সাথে,
  * সার্ভারে একটু পরে (সব ডিভাইসে এক)। নতুন অ্যাপ যোগ হলে order-এর শেষে বসে। */
 function fixPrefs() {
+  if (P.v !== 2) { if (!P.name) P.name = 'বস'; P.v = 2; }   // আগের সংস্করণে নাম ফাঁকা থাকত
   P.order = (P.order || []).filter(function (id) { return APPS[id]; });
   ALL_IDS.forEach(function (id) { if (P.order.indexOf(id) === -1) P.order.push(id); });
   ['hidden', 'collapsed'].forEach(function (k) { P[k] = (P[k] || []).filter(function (id) { return APPS[id]; }); });
@@ -680,8 +691,24 @@ function header() {
   var d = new Date(), h = d.getHours();
   $('todayTxt').textContent = d.toLocaleDateString('bn-BD', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   var g = h < 5 ? 'শুভ রাত্রি' : h < 12 ? 'শুভ সকাল' : h < 17 ? 'শুভ দুপুর' : h < 20 ? 'শুভ সন্ধ্যা' : 'শুভ রাত্রি';
-  $('hello').innerHTML = g + (P.name ? ', <span>' + esc(P.name) + '</span>' : '') + ' 👋';
+  $('hello').innerHTML = g + (P.name ? ', <span>' + esc(P.name) + '</span>' : '') + GIRL;
 }
+
+// হাসিখুশি মেয়ের ছোট ছবি (নিজস্ব SVG — সব ফোনে একই রকম দেখায়, emoji-র মতো বদলায় না)
+var GIRL = '<svg class="girl" viewBox="0 0 64 64" aria-hidden="true">' +
+  '<defs><linearGradient id="gbg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fde2f3"/><stop offset="1" stop-color="#e4d4ff"/></linearGradient></defs>' +
+  '<circle cx="32" cy="32" r="31" fill="url(#gbg)"/>' +
+  '<path d="M14 40C12 22 20 10 32 10s20 12 18 30c-1 6-4 10-6 12H20c-2-2-5-6-6-12z" fill="#2a1a17"/>' +           // পেছনের চুল
+  '<path d="M13 64c1-9 9-14 19-14s18 5 19 14z" fill="#8b3fd9"/>' +                                                   // জামা
+  '<path d="M27 46h10v6c-2 2-8 2-10 0z" fill="#efb995"/>' +                                                          // গলা
+  '<ellipse cx="32" cy="31" rx="13" ry="14.5" fill="#f6c9a8"/>' +                                                    // মুখ
+  '<path d="M18.5 30c0-10 6-15.5 13.5-15.5S45.5 20 45.5 30c-3-5-7-8-11-8.5-2 3-8 6-16 8.5z" fill="#2a1a17"/>' +       // সামনের চুল
+  '<g fill="#ff7eb6"><circle cx="43" cy="19" r="2.6"/><circle cx="46.5" cy="21.5" r="2.6"/><circle cx="43.8" cy="23.6" r="2.6"/><circle cx="40.4" cy="22" r="2.6"/></g>' +
+  '<circle cx="43.2" cy="21.6" r="1.6" fill="#ffd34d"/>' +                                                           // চুলের ফুল
+  '<path d="M23.5 31.5q3-3.2 6 0M34.5 31.5q3-3.2 6 0" fill="none" stroke="#3b2a25" stroke-width="1.8" stroke-linecap="round"/>' + // হাসি-চোখ
+  '<circle cx="23.5" cy="36.5" r="2.6" fill="#ff9fb4" opacity=".7"/><circle cx="40.5" cy="36.5" r="2.6" fill="#ff9fb4" opacity=".7"/>' +
+  '<path d="M27.5 37.5q4.5 5.5 9 0z" fill="#c2185b"/><path d="M28.6 38.1h6.8q-.6 1.3-3.4 1.3t-3.4-1.3z" fill="#fff"/>' + // হাসি
+  '</svg>';
 
 /* প্রতিটা অ্যাপের জন্য আলাদা কল, একসাথে — যেটা আগে আসে তার কার্ড আগে ভরে
  * (CBT-র হিসাব বেশি সময় নেয়, বাকিরা তার জন্য অপেক্ষা করে না) */
@@ -847,7 +874,7 @@ function customizeHtml() {
     }).join('') + '</div>' +
     '<h4>কলাম (কম্পিউটারে)</h4>' + seg('cols', [['auto', 'অটো'], ['2', '২টা'], ['3', '৩টা']]) +
     '<h4>নিজে থেকে হালনাগাদ</h4>' + seg('refresh', [[0, 'বন্ধ'], [2, '২ মিনিট'], [5, '৫ মিনিট'], [15, '১৫ মিনিট']]) +
-    '<h4>শুভেচ্ছায় আপনার নাম</h4><input class="tin" id="cuName" maxlength="30" placeholder="যেমন: আশরাফুল" value="' + esc(P.name) + '">' +
+    '<h4>শুভেচ্ছায় আপনার নাম</h4><input class="tin" id="cuName" maxlength="30" placeholder="যেমন: বস" value="' + esc(P.name) + '">' +
     '<div style="display:flex;justify-content:space-between;margin-top:18px;gap:10px"><button class="sbtn" id="cuReset">↺ আগের মতো করুন</button><button class="sbtn pri" id="cuDone">✓ হয়ে গেছে</button></div>';
 }
 function openCustomize() { openSheet('⚙️ সাজান', customizeHtml()); bindCustomize(); }
