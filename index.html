@@ -387,7 +387,7 @@ main{max-width:1200px;margin:0 auto;padding:18px 16px 30px}
     box-shadow: 0 24px 60px rgba(0,0,0,.45); text-align: center; margin: auto; --m1:#4f46e5; --m2:#7c3aed; --m3:#c026d3; }
   #alLock .mk { width: 70px; height: 70px; display: block; margin: 0 auto 12px; }
   #alLock .al-org { font: 800 21px 'Plus Jakarta Sans', 'Inter', sans-serif; margin: 0 0 2px; letter-spacing: -.02em; }
-  #alLock .al-app { font-size: 12.5px; font-weight: 700; color: #8a86a8; margin: 0 0 18px; }
+  #alLock .al-app { font-size: 12.5px; font-weight: 700; color: #8a86a8; margin: 0 0 18px; line-height: 1.5; min-height: 19px; }
   #alLock .al-sub { font-size: 13px; font-weight: 600; color: #6b6b85; line-height: 1.55; margin: -4px 0 14px; }
   #alLock .al-sub:empty { display: none; }
   #alLock .al-f { text-align: left; margin-bottom: 10px; }
@@ -410,7 +410,7 @@ main{max-width:1200px;margin:0 auto;padding:18px 16px 30px}
 <form class="al-card" id="alForm" autocomplete="off" novalidate>
   <script>document.write(markSvg());</script>
   <div class="al-org">Work Hub</div>
-  <div class="al-app">সব অ্যাপের আজকের হিসাব</div>
+  <div class="al-app" id="alQuip"></div>
   <div class="al-sub" id="alSub"></div>
   <div class="al-f" id="alFa"><label for="alA" id="alLa"></label><input class="al-in" id="alA" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
   <div class="al-f" id="alFb"><label for="alB" id="alLb"></label><input class="al-in" id="alB" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
@@ -454,7 +454,31 @@ main{max-width:1200px;margin:0 auto;padding:18px 16px 30px}
   function focusA() { setTimeout(function () { try { $('alA').focus(); } catch (e) {} }, 30); }
   function msg(s, ok) { var e = $('alErr'); e.textContent = s; e.className = 'al-err' + (ok ? ' ok' : ''); }
 
+  var QUIPS = [
+    '⚠️ শুধু মালিকের জন্য — বাকিরা দয়া করে চা খেতে যান ☕',
+    '🚫 অনুমতি ছাড়া ঢুকলে হিসাব নিজেই নালিশ করবে',
+    '👀 সাবধান! প্রতিটা চেষ্টা রেকর্ড হচ্ছে',
+    '🤫 PIN কাউকে বলবেন না — বউকেও না, বসকেও না',
+    '😎 বস আসছেন, সবাই সোজা হয়ে বসুন',
+    '🧮 হিসাব রেডি, শুধু আপনার অপেক্ষা',
+    '🔐 ভুল PIN দিলে ক্যালকুলেটরও কষ্ট পায়',
+    '🐱 বিড়াল কি-বোর্ডে হাঁটলে দায় আমাদের না',
+    '⚠️ অন্যের ফোনে খুলবেন না — হিসাব লজ্জা পায়',
+    '🍵 আগে এক কাপ চা, তারপর হিসাব',
+    '🕵️ এখানে চোর-পুলিশ খেলা নিষেধ',
+    '💸 টাকার হিসাব — হাসি-মজা পরে',
+    '🙈 পাশে কেউ উঁকি দিচ্ছে না তো?',
+    '🚨 সতর্কতা: এই পাতায় শুধু আসল বসের প্রবেশ',
+    '😴 ১৫ মিনিট চুপ থাকলে আমি আবার তালা দিয়ে দিই',
+    '🧠 PIN মনে আছে তো? না থাকলে চিন্তার কিছু নেই… আছে!',
+    '📵 অফিসের ফোনে খুললে, কাজ শেষে আবার তালা দিন',
+    '🦸 হিসাবের সুপারহিরো, স্বাগতম'
+  ];
+  function quip() { $('alQuip').textContent = QUIPS[Math.floor(Math.random() * QUIPS.length)]; }
+  quip();
+
   function lock() {
+    quip();
     if (!AUTH) { waitForLogin(); return; }
     locked = true; loginWait = false;
     root.removeAttribute('data-al-open');
