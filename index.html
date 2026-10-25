@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="bn">
 <head>
+<script src="ntf.js"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Work Hub</title>
@@ -341,6 +342,7 @@ main{max-width:1200px;margin:0 auto;padding:18px 16px 30px}
         <div class="tile"><script>document.write(markSvg());</script></div>
         <div><b>Work Hub</b><small id="todayTxt"></small></div>
       </div>
+      <button class="ib" data-ntf-bell title="নোটিফিকেশন" aria-label="নোটিফিকেশন">🔔</button>
       <button class="ib" id="refBtn" title="রিফ্রেশ"><span class="ri">↻</span></button>
       <button class="ib pri" id="custBtn" title="সাজান">⚙️<span class="lbl">সাজান</span></button>
       <button class="ib" id="menuBtn" title="মেনু">☰</button>
@@ -838,6 +840,7 @@ document.addEventListener('visibilitychange', function () {
 
 function showApp() {
   $('login').hidden = true; $('app').hidden = false;
+  if (window.NTF && !DEMO) NTF.start();
   header();
   // আগের বারের হিসাব সাথে সাথে দেখাই, তারপর নতুনটা আনি
   if (!S.data) { try { S.data = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); } catch (e) {} }
@@ -851,6 +854,7 @@ function showApp() {
 var LG = { email: '' };
 function showLogin() {
   $('app').hidden = true; $('login').hidden = false;
+  if (window.NTF) NTF.stop();
   lgStep(1);
   if (window.appLockWaitLogin) appLockWaitLogin();
 }
@@ -921,7 +925,8 @@ $('menu').addEventListener('click', function (e) {
   else if (act === 'lock') { if (window.appLockNow) appLockNow(); }
   else if (act === 'logout') {
     if (!confirm('এই ডিভাইস থেকে লগআউট করবেন? আবার ঢুকতে ইমেইল কোড লাগবে।')) return;
-    callServer('apiLogout', []).catch(function () {}).then(logoutLocal);
+    (window.NTF ? NTF.logout() : Promise.resolve()).catch(function () {})   // এই ডিভাইসের Push বন্ধ
+      .then(function () { return callServer('apiLogout', []); }).catch(function () {}).then(logoutLocal);
   } else if (act === 'security') openSecurity();
 });
 
@@ -1023,9 +1028,22 @@ function secRender(s) {
 }
 
 /* ---------- নমুনা ডেটা (?demo) ---------- */
-function demoCall(fn) {
+function demoNtf(a) {
+  if (a[0] !== 'list') return a[0] === 'cfg' ? { ready: false, owner: true, ext: true, devices: [] } : {};
+  var n = Date.now(), m = 60e3;
+  return { ver: 'demo', r: n - 50 * m, c: 0, owner: true, items: [
+    { i: '1', t: n - 2 * m, k: 'invoice', ti: '🧾 নতুন ইনভয়েস — রহমান লাইব্রেরি', b: '৳১২,৪৫০ · Staff: Rakib', u: '#', a: 'Invoice', ac: '#e0313b' },
+    { i: '2', t: n - 15 * m, k: 'stock', ti: '📦 স্টক কম — HSC ICT', b: 'বাকি ৬ কপি', a: 'TPL', ac: '#8b3fd9' },
+    { i: '3', t: n - 40 * m, k: 'report', ti: '📊 আজকের জমা রিপোর্ট', b: '২৪ জনের মধ্যে ১৯ জন জমা দিয়েছে', a: 'CBT', ac: '#0f9d6b' },
+    { i: '4', t: n - 90 * m, k: 'reminder', ti: '⏰ Boss Report পাঠানোর সময়', b: '৫টার মধ্যে', a: 'To-Do', ac: '#4f46e5' },
+    { i: '5', t: n - 300 * m, k: 'login', ti: '🔐 নতুন লগইন', b: '👤 buac243@gmail.com · 📱 Android · Chrome' },
+    { i: '6', t: n - 26 * 60 * m, k: 'report', ti: '📊 মাসের হিসাব বন্ধ হয়েছে', b: 'October 2026 — ১৪২.৫ ঘণ্টা', a: 'EntryLab', ac: '#0098e8' }
+  ] };
+}
+function demoCall(fn, args) {
   return new Promise(function (ok) {
     setTimeout(function () {
+      if (fn === 'apiNotify') return ok(demoNtf(args || []));
       if (fn === 'apiSecurity') return ok({ owner: 'coo.tpl.tee@gmail.com', users: ['buac243@gmail.com'], limit: 10,
         sessions: [{ id: 'a'.repeat(30), email: 'coo.tpl.tee@gmail.com', device: 'Windows · Chrome', last: Date.now(), current: true },
                    { id: 'b'.repeat(30), email: 'buac243@gmail.com', device: 'Android · Chrome', last: Date.now() - 3600e3 }] });
@@ -1047,8 +1065,18 @@ function demoCall(fn) {
   });
 }
 
+/* ---------- 🔔 নোটিফিকেশন ----------
+ * পাঁচটা অ্যাপের নোটিফিকেশন একসাথে (কোনটা কোন অ্যাপের, রঙিন নামে দেখায়) + Hub-এর নিজের লগইন সতর্কতা।
+ * সার্ভার: Code-এর apiNotify → Notify ফাইল। এই ডিভাইসে Push চালু করলে শুধু Hub-এর নিজেরগুলো আসে —
+ * অ্যাপগুলোর Push সেই অ্যাপ থেকেই আসে, তাই দুবার আসে না। */
+if (window.NTF) NTF.init({
+  app: 'hub', name: 'Work Hub', ext: 'Gmail', sw: 'ntf-sw.js', scope: './',
+  call: function (op, arg) { return callServer('apiNotify', [op, arg]); }
+});
+
 /* ---------- শুরু ---------- */
 if (AUTH) showApp(); else showLogin();
+if (DEMO && window.NTF) NTF.start();
 </script>
 </body>
 </html>
