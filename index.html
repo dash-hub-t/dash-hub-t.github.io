@@ -834,6 +834,9 @@ function restartAuto() {
   clearInterval(autoT);
   if (P.refresh > 0) autoT = setInterval(function () { if (!document.hidden && !$('app').hidden) { header(); load(false); } }, P.refresh * 60000);
 }
+// শুভেচ্ছা (সকাল/দুপুর/সন্ধ্যা), তারিখ আর দিনের কথা — পাতা খোলা থাকলেও সময়মতো বদলায়
+setInterval(function () { if (!document.hidden && !$('app').hidden) header(); }, 60000);
+document.addEventListener('visibilitychange', function () { if (!document.hidden && !$('app').hidden) header(); });
 document.addEventListener('visibilitychange', function () {
   if (!document.hidden && !$('app').hidden && P.refresh > 0 && S.data && Date.now() - S.data.at > P.refresh * 60000) load(false);
 });
