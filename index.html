@@ -35,7 +35,7 @@ function setAuth(t) {
 
 /* সাজানোর পছন্দ — আগে এই ব্রাউজারের কপি, পরে সার্ভারের (সব ডিভাইসে এক) */
 var PREF_DEF = {
-  order: ['todo', 'entrylab', 'cbt', 'invoice', 'tpl'], hidden: [], collapsed: [],
+  order: ['todo', 'entrylab', 'cbt', 'invoice', 'tpl', 'prdesk'], hidden: [], collapsed: [],
   density: 'full', chips: true, theme: 'auto', accent: 'brand', cols: 'auto', refresh: 2, name: 'বস', ts: 0
 };
 var P = JSON.parse(JSON.stringify(PREF_DEF));
@@ -555,7 +555,8 @@ var APPS = {
   entrylab: { name: 'EntryLab',         ico: '⌨️', c: '#0098e8', url: 'https://m-ashraful.github.io/entrylab/' },
   cbt:      { name: 'CBT Admin',        ico: '👥', c: '#0f9d6b', url: 'https://m-ashraful.github.io/cbt/admin/' },
   invoice:  { name: 'Retailer Invoice', ico: '🧾', c: '#e0313b', url: 'https://tpl-invoice.github.io/' },
-  tpl:      { name: 'TP Inventory',     ico: '📦', c: '#8b3fd9', url: 'https://tpl-inventory.github.io/' }
+  tpl:      { name: 'TP Inventory',     ico: '📦', c: '#8b3fd9', url: 'https://tpl-inventory.github.io/' },
+  prdesk:   { name: 'PR Desk',          ico: '🤝', c: '#db2777', url: 'https://prdesk-tee.github.io/' }
 };
 var ALL_IDS = Object.keys(APPS);
 var S = { data: null, loading: false, err: '', pending: {} };
@@ -565,6 +566,7 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function
 function n0(v) { return (Number(v) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 }); }
 function n2(v) { return (Number(v) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 }); }
 function tk(v) { return '৳' + n0(v); }
+function tkL(v) { v = Number(v) || 0; return v >= 1e7 ? '৳' + n2(v / 1e7) + ' কোটি' : v >= 1e5 ? '৳' + n2(Math.round(v / 1e3) / 100) + ' লাখ' : tk(v); }   // বড় অঙ্ক ছোট করে (PR Desk)
 function pct(a, b) { return b > 0 ? Math.max(0, Math.min(100, Math.round(a / b * 100))) : 0; }
 function hm(mins) { mins = Math.round(Number(mins) || 0); var h = Math.floor(mins / 60), m = mins % 60; return h ? h + 'h ' + m + 'm' : m + 'm'; }
 function ago(t) {
@@ -675,6 +677,23 @@ var BODY = {
       '<div class="sec">স্টক সতর্কতা<span>' + d.threshold + ' বা কম = কম স্টক</span></div>' +
       '<div class="stats two">' + stat('কম স্টক', n0(d.lowN), d.lowN ? 'bad' : 'good', 'টা বই') + stat('শেষ', n0(d.outN), d.outN ? 'bad' : 'good', 'টা বই') + '</div>' +
       (out || low ? '<div class="tags more" style="margin-top:8px">' + out + low + '</div>' : '');
+  },
+  prdesk: function (d) {
+    var warn = [];
+    if (d.proof) warn.push('<span class="tag bad">📺 ' + d.proof + 'টা বিজ্ঞাপনের প্রমাণ আসেনি</span>');
+    if (d.sign) warn.push('<span class="tag bad">✍️ ' + d.sign + 'টা সই করা চুক্তিপত্র আসেনি</span>');
+    if (d.ending) warn.push('<span class="tag">📄 ' + d.ending + 'টা চুক্তি শেষের পথে</span>');
+    if (d.unk) warn.push('<span class="tag">❔ ' + d.unk + 'টা কিস্তি যাচাই বাকি</span>');
+    var next = (d.next || []).map(function (x) {
+      return '<div class="li"><span>' + esc(x.t) + '</span><em class="num"' + (x.o ? ' style="color:var(--neg)"' : '') + '>' + esc(x.o ? 'বকেয়া' : String(x.s || '').slice(5).split('-').reverse().join('/')) + '</em></div>';
+    }).join('');
+    return '<div class="stats">' + stat('কিস্তি দিতে হবে', d.pays, d.overdue ? 'bad' : (d.pays ? 'hl' : 'good'), d.overdue ? d.overdue + ' বকেয়া' : '') + stat('মোট টাকা', tkL(d.payAmt)) + stat('খোঁজ নিতে হবে', d.fu, d.fu ? 'hl' : 'good') + '</div>' +
+      (!d.pays && !d.fu ? '<div class="note more">আজ টাকা দেওয়া বা খোঁজ নেওয়ার কিছু নেই।</div>' : '') +
+      (next ? '<div class="more"><div class="sec">সামনে যা করতে হবে</div><div class="list">' + next + '</div></div>' : '') +
+      '<div class="more"><div class="sec">চুক্তি ও কনটেন্ট</div><div class="stats">' + stat('চলতি চুক্তি', d.activeDeals, '', d.activeCreators + ' জন') + stat('এ মাসের কনটেন্ট', d.expM ? d.gotM + '/' + d.expM : '—', d.expM && d.gotM < d.expM ? 'bad' : 'good') + stat('কথা চলছে', d.talks) + '</div></div>' +
+      '<div class="sec">এ সপ্তাহে নতুন খোঁজ<span class="num">' + d.found + (d.goal ? ' / ' + d.goal + ' জন' : ' জন') + '</span></div>' +
+      '<div class="bar"><i style="width:' + pct(d.found, d.goal || 1) + '%"></i></div>' +
+      (warn.length ? '<div class="tags" style="margin-top:10px">' + warn.join('') + '</div>' : '');
   }
 };
 
@@ -684,7 +703,8 @@ var CHIP = {
   entrylab: function (d) { return [n0(d.today.entries) + ' Entry', 'EntryLab · ' + hm(d.today.minutes)]; },
   cbt: function (d) { return [d.submitted + '/' + d.active + ' জমা', 'CBT আজ']; },
   invoice: function (d) { return [tk(d.today.sales), 'Invoice · আজ বিক্রি']; },
-  tpl: function (d) { return d.error ? ['—', 'TP Inventory'] : [tk(d.amt), 'TPL · ' + n0(d.qty) + ' কপি']; }
+  tpl: function (d) { return d.error ? ['—', 'TP Inventory'] : [tk(d.amt), 'TPL · ' + n0(d.qty) + ' কপি']; },
+  prdesk: function (d) { return d.pays ? [tkL(d.payAmt), 'PR Desk · ' + d.pays + 'টা কিস্তি'] : d.fu ? [d.fu + ' খোঁজ', 'PR Desk আজ'] : [d.activeDeals + ' চুক্তি', 'PR Desk · চলছে']; }
 };
 
 function visibleIds() { return P.order.filter(function (id) { return P.hidden.indexOf(id) === -1; }); }
@@ -1068,7 +1088,9 @@ function demoCall(fn, args) {
         invoice: { ok: true, at: at, data: { today: { invoices: 6, sales: 48250, collected: 30000 }, month: { invoices: 88, sales: 812400, collected: 655000 }, due: 386720 } },
         tpl: { ok: true, at: at, data: { qty: 238, amt: 61940, entries: 14, threshold: 20, lowN: 4, outN: 1,
           split: { tpl: 120, tth: 76, ecom: 42, tplAmt: 31200, tthAmt: 19740, ecomAmt: 11000 },
-          low: [{ n: 'HSC ICT', c: 6 }, { n: 'SSC Math', c: 11 }, { n: 'Physics 1st', c: 15 }, { n: 'English Grammar', c: 18 }], out: ['Biology 2nd'] } }
+          low: [{ n: 'HSC ICT', c: 6 }, { n: 'SSC Math', c: 11 }, { n: 'Physics 1st', c: 15 }, { n: 'English Grammar', c: 18 }], out: ['Biology 2nd'] } },
+        prdesk: { ok: true, at: at, data: { fu: 3, pays: 2, payAmt: 650000, overdue: 1, overAmt: 600000, unk: 9, ending: 1, found: 4, goal: 10, activeDeals: 15, activeCreators: 14, talks: 108,
+          expM: 6, gotM: 4, proof: 1, sign: 1, next: [{ t: '💰 Metro Rail — ৳6,00,000', s: '2026-11-13', o: 1 }, { t: '🤝 Rafsan TheChotoBhai — দর নিয়ে কথা', s: '2026-11-14' }, { t: '💰 Liliput Farhan — ৳50,000', s: '2026-11-16' }] } }
       } });
     }, 400);
   });
