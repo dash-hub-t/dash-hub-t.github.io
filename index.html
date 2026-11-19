@@ -35,7 +35,7 @@ function setAuth(t) {
 
 /* সাজানোর পছন্দ — আগে এই ব্রাউজারের কপি, পরে সার্ভারের (সব ডিভাইসে এক) */
 var PREF_DEF = {
-  order: ['todo', 'entrylab', 'cbt', 'invoice', 'tpl', 'prdesk'], hidden: [], collapsed: [],
+  order: ['todo', 'entrylab', 'cbt', 'invoice', 'tpl', 'prdesk', 'recruit'], hidden: [], collapsed: [],
   density: 'full', chips: true, theme: 'auto', accent: 'brand', cols: 'auto', refresh: 2, name: 'বস', ts: 0
 };
 var P = JSON.parse(JSON.stringify(PREF_DEF));
@@ -556,7 +556,8 @@ var APPS = {
   cbt:      { name: 'CBT Admin',        ico: '👥', c: '#0f9d6b', url: 'https://m-ashraful.github.io/cbt/admin/' },
   invoice:  { name: 'Retailer Invoice', ico: '🧾', c: '#e0313b', url: 'https://tpl-invoice.github.io/' },
   tpl:      { name: 'TP Inventory',     ico: '📦', c: '#8b3fd9', url: 'https://tpl-inventory.github.io/' },
-  prdesk:   { name: 'PR Desk',          ico: '🤝', c: '#db2777', url: 'https://prdesk-tee.github.io/' }
+  prdesk:   { name: 'PR Desk',          ico: '🤝', c: '#db2777', url: 'https://prdesk-tee.github.io/' },
+  recruit:  { name: 'শিক্ষক নিয়োগ ২০২৭', ico: '🎓', c: '#b45309', url: 'https://tee-tth-recruitment.github.io/' }
 };
 var ALL_IDS = Object.keys(APPS);
 var S = { data: null, loading: false, err: '', pending: {} };
@@ -694,6 +695,16 @@ var BODY = {
       '<div class="sec">এ সপ্তাহে নতুন খোঁজ<span class="num">' + d.found + (d.goal ? ' / ' + d.goal + ' জন' : ' জন') + '</span></div>' +
       '<div class="bar"><i style="width:' + pct(d.found, d.goal || 1) + '%"></i></div>' +
       (warn.length ? '<div class="tags" style="margin-top:10px">' + warn.join('') + '</div>' : '');
+  },
+  recruit: function (d) {
+    var t = d.t || {}, c = d.c || {}, st = d.stage || {}, nx = st.next;
+    var wk = (d.recent || []).reduce(function (a, b) { return a + b; }, 0);
+    var tags = (d.alerts || []).map(function (x) { return '<span class="tag' + (x.bad ? ' bad' : '') + '">' + esc(x.t) + '</span>'; }).join('');
+    return '<div class="stats">' + stat('আবেদন', n0(t.applied), c.today ? 'hl' : '', c.today ? 'আজ ' + c.today : '') + stat('অনুমোদিত', n0(t.approved)) + stat('চূড়ান্ত নিয়োগ', n0(t.hired), t.hired ? 'good' : '') + '</div>' +
+      '<div class="sec">' + esc(st.now || '') + (nx ? '<span>' + esc(nx.t) + ' — ' + (nx.days === 0 ? 'আজ' : nx.days === 1 ? 'কাল' : nx.days + ' দিন পর') + '</span>' : '') + '</div>' +
+      (tags ? '<div class="tags">' + tags + '</div>' : '') +
+      '<div class="more"><div class="sec">ধাপে ধাপে<span class="num">এ সপ্তাহে আবেদন ' + wk + '</span></div><div class="stats two">' +
+      stat('লিখিত পরীক্ষায়', n0(t.written)) + stat('উত্তীর্ণ', n0(t.pass), '', t.wait ? 'অপেক্ষমাণ ' + t.wait : '') + stat('প্রশিক্ষণে', n0(t.trained), '', t.called ? 'ডাক ' + t.called : '') + stat('ডেমো ক্লাস', n0(t.demo)) + '</div></div>';
   }
 };
 
@@ -704,6 +715,7 @@ var CHIP = {
   cbt: function (d) { return [d.submitted + '/' + d.active + ' জমা', 'CBT আজ']; },
   invoice: function (d) { return [tk(d.today.sales), 'Invoice · আজ বিক্রি']; },
   tpl: function (d) { return d.error ? ['—', 'TP Inventory'] : [tk(d.amt), 'TPL · ' + n0(d.qty) + ' কপি']; },
+  recruit: function (d) { var t = d.t || {}; return t.hired ? [t.hired + ' নিয়োগ', 'শিক্ষক নিয়োগ'] : [n0(t.applied) + ' আবেদন', 'শিক্ষক নিয়োগ' + (d.c && d.c.today ? ' · আজ ' + d.c.today : '')]; },
   prdesk: function (d) { return d.pays ? [tkL(d.payAmt), 'PR Desk · ' + d.pays + 'টা কিস্তি'] : d.fu ? [d.fu + ' খোঁজ', 'PR Desk আজ'] : [d.activeDeals + ' চুক্তি', 'PR Desk · চলছে']; }
 };
 
@@ -1090,7 +1102,9 @@ function demoCall(fn, args) {
           split: { tpl: 120, tth: 76, ecom: 42, tplAmt: 31200, tthAmt: 19740, ecomAmt: 11000 },
           low: [{ n: 'HSC ICT', c: 6 }, { n: 'SSC Math', c: 11 }, { n: 'Physics 1st', c: 15 }, { n: 'English Grammar', c: 18 }], out: ['Biology 2nd'] } },
         prdesk: { ok: true, at: at, data: { fu: 3, pays: 2, payAmt: 650000, overdue: 1, overAmt: 600000, unk: 9, ending: 1, found: 4, goal: 10, activeDeals: 15, activeCreators: 14, talks: 108,
-          expM: 6, gotM: 4, proof: 1, sign: 1, next: [{ t: '💰 Metro Rail — ৳6,00,000', s: '2026-11-13', o: 1 }, { t: '🤝 Rafsan TheChotoBhai — দর নিয়ে কথা', s: '2026-11-14' }, { t: '💰 Liliput Farhan — ৳50,000', s: '2026-11-16' }] } }
+          expM: 6, gotM: 4, proof: 1, sign: 1, next: [{ t: '💰 Metro Rail — ৳6,00,000', s: '2026-11-13', o: 1 }, { t: '🤝 Rafsan TheChotoBhai — দর নিয়ে কথা', s: '2026-11-14' }, { t: '💰 Liliput Farhan — ৳50,000', s: '2026-11-16' }] } },
+        recruit: { ok: true, at: at, data: { c: { today: 7, problem: 2, pending: 1 }, stage: { now: 'আবেদন চলছে', next: { t: 'আবেদনের শেষ দিন', days: 6 } }, recent: [3, 8, 12, 6, 20, 31, 7],
+          t: { applied: 252, approved: 238, written: 0, pass: 0, wait: 0, called: 0, trained: 0, demo: 0, hired: 0 }, alerts: [{ t: '২টা আবেদনে সমস্যা', bad: 1 }, { t: '১টা আবেদন অনুমোদনের অপেক্ষায়', bad: 1 }] } }
       } });
     }, 400);
   });
